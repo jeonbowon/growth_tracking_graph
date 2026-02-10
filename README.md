@@ -1,16 +1,88 @@
-# growth_tracking_graph
+## \# 우리아이 성장 그래프 (growth\_tracking\_graph)
 
-아이성장관리
+## 
 
-## Getting Started
+## 아이의 성장 기록을 한눈에 확인하고,
 
-This project is a starting point for a Flutter application.
+## 국가 표준 성장 곡선과 비교할 수 있는 Flutter 기반 앱입니다.
 
-A few resources to get you started if this is your first Flutter project:
+## 
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 부모가 직접 아이의 신체 데이터를 입력하고,
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 시간 흐름에 따른 변화를 그래프로 확인하는 데 목적이 있습니다.
+
+## 
+
+## ---
+
+## 
+
+## \## 주요 기능
+
+## 
+
+## \- 자녀 프로필 등록 (이름, 성별, 생년월일)
+
+## \- 키 / 몸무게 성장 기록 입력
+
+## \- 국가 표준 성장 곡선 시각화
+
+## \- 개인 기록과 표준 곡선 비교
+
+## \- Flutter 기반 멀티플랫폼 지원 (Windows / Android / Web 등)
+
+## 
+
+## ---
+
+## 
+
+## \## 기술 스택
+
+## 
+
+## \- Flutter
+
+## \- Dart
+
+## \- fl\_chart (그래프 시각화)
+
+## 
+
+## ---
+
+## 
+
+## \## 프로젝트 목적
+
+## 
+
+## 이 앱은 상업용보다는
+
+## \*\*실사용과 장기 기록 관리\*\*를 목표로 제작되었습니다.
+
+## 
+
+## 아이의 성장 데이터를
+
+## 표가 아닌 \*\*그래프로 직관적으로\*\* 보고 싶다는 필요에서 시작되었습니다.
+
+## 
+
+## ---
+
+## 
+
+## \## 실행 방법
+
+## 
+
+## ```bash
+
+## flutter pub get
+
+## flutter run
+
+
+
