@@ -160,87 +160,116 @@ class _MainPageState extends State<MainPage> {
         title: const Text('우리아이 성장 그래프'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Column(
-            children: [
-              // 자녀 리스트
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: children.length,
-                itemBuilder: (context, index) {
-                  final child = children[index];
-                  return ListTile(
-                    title: Text('이름: ${child.name}'),
-                    subtitle: Text(
-                      '성별: ${child.gender}\n'
-                      '생년월일: ${child.birthDate.toLocal().toString().split(' ')[0]}',
-                    ),
-                    trailing:
-                        const Icon(Icons.arrow_forward_ios, color: Colors.teal),
-                    onTap: () => _showActionSheet(child),
-                  );
-                },
-              ),
-              const Divider(),
 
-              // 하단 카드 버튼들
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.3,
-                  children: [
-                    _buildActionCard(
-                      icon: Icons.person_add_alt_1,
-                      label: '프로필 입력',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) =>
-                              PageProfileInput(onProfileSaved: _loadChildren),
-                        );
-                      },
-                    ),
-                    _buildActionCard(
-                      icon: Icons.stacked_line_chart,
-                      label: '표준성장도표',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PageStandardGrowthChart(),
+      // ✅ 여기부터 핵심: 모바일 폭 기준으로 가운데 정렬 + 폭 제한 + 스크롤
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // 모바일 기준 폭 (너무 넓게 퍼지는 걸 막음)
+          const maxContentWidth = 430.0;
+
+          // 현재 화면 폭(윈도우/태블릿/폰)
+          final w = constraints.maxWidth;
+
+          // 폭이 좁으면 1열, 넓으면 2열
+          final crossAxisCount = (w < 420) ? 1 : 2;
+
+          // 모바일에서 카드가 너무 납작/커지지 않게
+          final childAspectRatio = (crossAxisCount == 1) ? 2.4 : 1.3;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: maxContentWidth),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Column(
+                      children: [
+                        // 자녀 리스트
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: children.length,
+                          itemBuilder: (context, index) {
+                            final child = children[index];
+                            return ListTile(
+                              title: Text('이름: ${child.name}'),
+                              subtitle: Text(
+                                '성별: ${child.gender}\n'
+                                '생년월일: ${child.birthDate.toLocal().toString().split(' ')[0]}',
+                              ),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.teal,
+                              ),
+                              onTap: () => _showActionSheet(child),
+                            );
+                          },
+                        ),
+                        const Divider(),
+
+                        // 하단 카드 버튼들
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: crossAxisCount,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: childAspectRatio,
+                            children: [
+                              _buildActionCard(
+                                icon: Icons.person_add_alt_1,
+                                label: '프로필 입력',
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => PageProfileInput(
+                                      onProfileSaved: _loadChildren,
+                                    ),
+                                  );
+                                },
+                              ),
+                              _buildActionCard(
+                                icon: Icons.stacked_line_chart,
+                                label: '표준성장도표',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PageStandardGrowthChart(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _buildActionCard(
+                                icon: Icons.help_outline,
+                                label: '사용 설명',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PageAppExplanation(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
-                    _buildActionCard(
-                      icon: Icons.help_outline,
-                      label: '사용 설명',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PageAppExplanation(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
+
 
   // 카드형 버튼
   Widget _buildActionCard({
