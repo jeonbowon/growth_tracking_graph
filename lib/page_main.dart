@@ -9,7 +9,6 @@ import 'page_app_explanation.dart';
 import 'child_growth_input.dart';
 import 'child_growth_list.dart';
 import 'child_growth_chart.dart';
-import 'child_growth_chart_1.dart';
 
 class ChildProfile {
   String name;
@@ -35,6 +34,13 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  // 고급 보라 팔레트 (메인 화면 전용)
+  static const Color _accent = Color(0xFF7C5CFF);
+  static const Color _appBar = Color(0xFF2D1E4A);
+  static const Color _bottomBar = Color(0xFF1E1633);
+  static const Color _buttonBg = Color(0xFF2D1E4A);
+  static const Color _bg = Color(0xFFF6F3FF);
+
   List<ChildProfile> children = [];
 
   @override
@@ -46,11 +52,14 @@ class _MainPageState extends State<MainPage> {
   Future<void> _loadChildren() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString('childProfiles');
+
     if (jsonString != null) {
       final List<dynamic> jsonList = json.decode(jsonString);
       setState(() {
         children = jsonList.map((e) => ChildProfile.fromJson(e)).toList();
       });
+    } else {
+      setState(() => children = []);
     }
   }
 
@@ -94,61 +103,92 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  void _openProfileInput() {
+    showDialog(
+      context: context,
+      builder: (_) => PageProfileInput(
+        onProfileSaved: _loadChildren,
+      ),
+    );
+  }
+
   void _showActionSheet(ChildProfile child) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.add),
-            title: const Text('성장 데이터 입력'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChildGrowthInput(
-                    childName: child.name,
-                    birthdate: child.birthDate,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: const Icon(Icons.add, color: _accent),
+              title: const Text('성장 데이터 입력'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChildGrowthInput(
+                      childName: child.name,
+                      birthdate: child.birthDate,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit),
-            title: const Text('데이터 보기 및 수정'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChildGrowthList(
-                    childName: child.name,
-                    birthdate: child.birthDate,
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit, color: _accent),
+              title: const Text('데이터 보기 및 수정'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChildGrowthList(
+                      childName: child.name,
+                      birthdate: child.birthDate,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.show_chart),
-            title: const Text('그래프 보기'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: 자녀별 성장 그래프 페이지 연결 예정
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete),
-            title: const Text('프로필 삭제'),
-            onTap: () {
-              Navigator.pop(context);
-              _confirmDeleteProfile(child.name);
-            },
-          ),
-        ],
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.show_chart, color: _accent),
+              title: const Text('그래프 보기'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChildGrowthChart(childName: child.name),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('프로필 삭제'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeleteProfile(child.name);
+              },
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     );
   }
@@ -156,111 +196,28 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _bg,
       appBar: AppBar(
         title: const Text('우리아이 성장 그래프'),
+        backgroundColor: _appBar,
+        foregroundColor: Colors.white,
         centerTitle: true,
+        elevation: 0,
       ),
 
-      // ✅ 여기부터 핵심: 모바일 폭 기준으로 가운데 정렬 + 폭 제한 + 스크롤
+      // ✅ 리스트는 스크롤 / 하단 버튼은 고정
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // 모바일 기준 폭 (너무 넓게 퍼지는 걸 막음)
           const maxContentWidth = 430.0;
-
-          // 현재 화면 폭(윈도우/태블릿/폰)
-          final w = constraints.maxWidth;
-
-          // 폭이 좁으면 1열, 넓으면 2열
-          final crossAxisCount = (w < 420) ? 1 : 2;
-
-          // 모바일에서 카드가 너무 납작/커지지 않게
-          final childAspectRatio = (crossAxisCount == 1) ? 2.4 : 1.3;
-
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: maxContentWidth),
               child: SafeArea(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Column(
-                      children: [
-                        // 자녀 리스트
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: children.length,
-                          itemBuilder: (context, index) {
-                            final child = children[index];
-                            return ListTile(
-                              title: Text('이름: ${child.name}'),
-                              subtitle: Text(
-                                '성별: ${child.gender}\n'
-                                '생년월일: ${child.birthDate.toLocal().toString().split(' ')[0]}',
-                              ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                color: Colors.teal,
-                              ),
-                              onTap: () => _showActionSheet(child),
-                            );
-                          },
-                        ),
-                        const Divider(),
-
-                        // 하단 카드 버튼들
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: crossAxisCount,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: childAspectRatio,
-                            children: [
-                              _buildActionCard(
-                                icon: Icons.person_add_alt_1,
-                                label: '프로필 입력',
-                                onTap: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => PageProfileInput(
-                                      onProfileSaved: _loadChildren,
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildActionCard(
-                                icon: Icons.stacked_line_chart,
-                                label: '표준성장도표',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PageStandardGrowthChart(),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildActionCard(
-                                icon: Icons.help_outline,
-                                label: '사용 설명',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PageAppExplanation(),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Column(
+                  children: [
+                    Expanded(child: _buildChildList()),
+                    _buildBottomMenu(),
+                  ],
                 ),
               ),
             ),
@@ -270,42 +227,194 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  Widget _buildChildList() {
+    if (children.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        children: [
+          _infoCard(
+            title: '등록된 자녀가 없습니다.',
+            desc: '아래 “프로필” 버튼으로 자녀 정보를 먼저 등록하세요.',
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '자녀를 선택하면 “성장 데이터 입력 / 보기 및 수정 / 그래프 보기” 메뉴가 열립니다.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+      );
+    }
 
-  // 카드형 버튼
-  Widget _buildActionCard({
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      itemCount: children.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final child = children[index];
+        final birth = child.birthDate.toLocal().toString().split(' ')[0];
+
+        return InkWell(
+          onTap: () => _showActionSheet(child),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _accent.withOpacity(0.10)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.child_care, color: _accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        child.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '성별: ${child.gender}  ·  생년월일: $birth',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: _accent),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _infoCard({required String title, required String desc}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _accent.withOpacity(0.10)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(desc, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  // ✅ 하단 고정 메뉴: 가로 1줄 / 높이 축소
+  Widget _buildBottomMenu() {
+    return Container(
+      height: 86,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: _bottomBar,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.22),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _menuButton(
+            icon: Icons.person_add_alt_1,
+            label: '프로필',
+            onTap: _openProfileInput,
+          ),
+          const SizedBox(width: 10),
+          _menuButton(
+            icon: Icons.stacked_line_chart,
+            label: '표준도표',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PageStandardGrowthChart()),
+              );
+            },
+          ),
+          const SizedBox(width: 10),
+          _menuButton(
+            icon: Icons.help_outline,
+            label: '사용설명',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PageAppExplanation()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuButton({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.teal),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _buttonBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: Colors.white),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
