@@ -47,3 +47,7 @@ app.*.map.json
 # ---- Flutter Desktop generated (prevent constant modified files) ----
 **/generated_plugin_registrant.*
 **/generated_plugins.cmake
+
+linux/flutter/
+macos/Flutter/
+windows/flutter/
