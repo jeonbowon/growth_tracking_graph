@@ -9,6 +9,7 @@ import 'page_app_explanation.dart';
 import 'child_growth_input.dart';
 import 'child_growth_list.dart';
 import 'child_growth_chart.dart';
+import 'backup_manager.dart';
 
 class ChildProfile {
   String name;
@@ -173,7 +174,7 @@ class _MainPageState extends State<MainPage> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ChildGrowthChart(childName: child.name),
+                    builder: (_) => ChildGrowthChart(childName: child.name, isMale: child.gender == '남아'),
                   ),
                 );
               },
@@ -199,6 +200,34 @@ class _MainPageState extends State<MainPage> {
       backgroundColor: _bg,
       appBar: AppBar(
         title: const Text('우리아이 성장 그래프'),
+        actions: [
+          IconButton(
+            tooltip: '백업 내보내기',
+            icon: const Icon(Icons.upload_file),
+            onPressed: () async {
+              await BackupManager.exportBackup(context);
+            },
+          ),
+          IconButton(
+            tooltip: '백업 가져오기',
+            icon: const Icon(Icons.download),
+            onPressed: () async {
+              try {
+                await BackupManager.importBackup(context);
+                if (mounted) {
+                  await _loadChildren();
+                  setState(() {});
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('가져오기 실패: $e')),
+                );
+              }
+            },
+          ),
+        ],
+
         backgroundColor: _appBar,
         foregroundColor: Colors.white,
         centerTitle: true,

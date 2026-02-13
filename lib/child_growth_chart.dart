@@ -36,9 +36,31 @@ class GrowthEntry {
 
 enum _ChartKind { height, weight, bmi }
 
+enum _Sex { boy, girl }
+
+extension _SexX on _Sex {
+  String get label => this == _Sex.boy ? '남아' : '여아';
+  String get key => this == _Sex.boy ? 'boys' : 'girls';
+}
+
+extension _ChartKindX on _ChartKind {
+  String get stdKey {
+    switch (this) {
+      case _ChartKind.height:
+        return 'height';
+      case _ChartKind.weight:
+        return 'weight';
+      case _ChartKind.bmi:
+        return 'bmi';
+    }
+  }
+}
+
 class ChildGrowthChart extends StatefulWidget {
   final String childName;
-  const ChildGrowthChart({required this.childName, Key? key}) : super(key: key);
+  /// 프로필에서 확정된 성별을 전달하세요. true=남아, false=여아
+  final bool isMale;
+  const ChildGrowthChart({required this.childName, required this.isMale, Key? key}) : super(key: key);
 
   @override
   State<ChildGrowthChart> createState() => _ChildGrowthChartState();
@@ -49,11 +71,28 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   static const Color _bg = Color(0xFFF6F3FF);
   static const Color _card = Colors.white;
 
+  // 성별(프로필 기준)
+  late final _Sex _sex = widget.isMale ? _Sex.boy : _Sex.girl;
+
+  // 표준(2017) 데이터: assets/standard_growth_2017.json
+  Map<String, dynamic> _stdRaw = {};
+  bool _stdLoaded = false;
+  String? _stdError;
+
+  // 표준선 표시
+  bool _showStandard = true;
+
+  // 백분위 표시 (표준선)
+  static const List<int> _percentiles = [3, 10, 25, 50, 75, 90, 97];
+  final Map<int, bool> _showP = {for (final p in _percentiles) p: true};
+
+  // 아이 데이터 표시
+  bool _showChild = true;
+
   List<GrowthEntry> _entries = [];
   _ChartKind? _selected; // null = preview list
   final TransformationController _tc = TransformationController();
 
-  // ✅ “사실상 무제한” 수준으로 크게 풀어둠
   static const double _minZoom = 0.05;
   static const double _maxZoom = 50.0;
 
@@ -61,7 +100,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   ({double minX, double maxX, double minY, double maxY})? _fullBounds;
   double? _visMinX, _visMaxX, _visMinY, _visMaxY;
 
-  // ✅ 화면 중앙(십자선) 기준 domain 좌표
   double? _centerX;
   double? _centerY;
 
@@ -69,6 +107,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   void initState() {
     super.initState();
     _loadEntries();
+    _loadStandard();
     _tc.addListener(_onTransformChanged);
   }
 
@@ -82,8 +121,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   void _resetZoomAndVisibleBounds({required _ChartKind kind}) {
     _tc.value = Matrix4.identity();
 
-    final spots = _spotsOf(kind);
-    _fullBounds = _calcBounds(spots);
+    final childSpots = _spotsOf(kind);
+    final stdSeries = _stdSeries(kind);
+    _fullBounds = _calcBoundsUnion(childSpots: childSpots, stdSeries: stdSeries);
 
     final b = _fullBounds!;
     _visMinX = b.minX;
@@ -91,7 +131,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     _visMinY = b.minY;
     _visMaxY = b.maxY;
 
-    // 중앙도 초기화
     _centerX = (b.minX + b.maxX) / 2.0;
     _centerY = (b.minY + b.maxY) / 2.0;
   }
@@ -152,7 +191,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
 
     final inv = Matrix4.inverted(_tc.value);
 
-    // 현재 화면(0,0)~(w,h)이 child로 어디를 보는지
     final p0 = inv.transform3(Vector3(0, 0, 0));
     final p1 = inv.transform3(Vector3(w, h, 0));
 
@@ -161,21 +199,18 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     final childMinY = p0.y < p1.y ? p0.y : p1.y;
     final childMaxY = p0.y > p1.y ? p0.y : p1.y;
 
-    // ✅ clamp 제거: 이동/축소에서도 값이 정확히 따라간다.
     final domMinX = b.minX + (childMinX / w) * rangeX;
     final domMaxX = b.minX + (childMaxX / w) * rangeX;
 
-    // y는 반대
     final domMaxY = b.maxY - (childMinY / h) * rangeY;
     final domMinY = b.maxY - (childMaxY / h) * rangeY;
 
-    // ✅ 화면 중앙(십자선) domain 좌표
     final pc = inv.transform3(Vector3(w / 2.0, h / 2.0, 0));
     final centerDomX = b.minX + (pc.x / w) * rangeX;
     final centerDomY = b.maxY - (pc.y / h) * rangeY;
 
     bool changed = false;
-    const eps = 1e-6; // 더 민감하게
+    const eps = 1e-6;
 
     void updDouble(double? cur, double next, void Function(double v) set) {
       if (cur == null || (next - cur).abs() > eps) {
@@ -231,6 +266,50 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     setState(() => _entries = parsed);
   }
 
+  Future<void> _loadStandard() async {
+    try {
+      final s = await DefaultAssetBundle.of(context)
+          .loadString('assets/standard_growth_2017.json');
+      _stdRaw = jsonDecode(s) as Map<String, dynamic>;
+      setState(() {
+        _stdLoaded = true;
+        _stdError = null;
+      });
+    } catch (e) {
+      setState(() {
+        _stdLoaded = false;
+        _stdError =
+            '표준 데이터 로드 실패: assets/standard_growth_2017.json\n'
+            'pubspec.yaml assets 등록/경로를 확인하세요.\n'
+            '오류: $e';
+      });
+    }
+  }
+
+  Map<int, List<FlSpot>> _stdSeries(_ChartKind kind) {
+    if (!_stdLoaded) return {};
+    final data = (_stdRaw['data'] as Map?)?.cast<String, dynamic>();
+    final sexNode = (data?[_sex.key] as Map?)?.cast<String, dynamic>();
+    final metricNode =
+        (sexNode?[kind.stdKey] as Map?)?.cast<String, dynamic>();
+    if (metricNode == null) return {};
+
+    final out = <int, List<FlSpot>>{};
+    for (final p in _percentiles) {
+      if (_showP[p] != true) continue;
+      final arr = metricNode['p$p'];
+      if (arr is! List) continue;
+
+      out[p] = arr
+          .whereType<List>()
+          .where((xy) => xy.length >= 2)
+          .map((xy) =>
+              FlSpot((xy[0] as num).toDouble(), (xy[1] as num).toDouble()))
+          .toList();
+    }
+    return out;
+  }
+
   ({double minX, double maxX, double minY, double maxY}) _calcBounds(
       List<FlSpot> spots) {
     if (spots.isEmpty) return (minX: 0, maxX: 24, minY: 0, maxY: 10);
@@ -252,6 +331,44 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     return (minX: minX, maxX: maxX, minY: yMinRaw - pad, maxY: yMaxRaw + pad);
   }
 
+
+  ({double minX, double maxX, double minY, double maxY}) _calcBoundsUnion({
+    required List<FlSpot> childSpots,
+    required Map<int, List<FlSpot>> stdSeries,
+  }) {
+    final all = <FlSpot>[];
+
+    if (_showChild) all.addAll(childSpots);
+    if (_showStandard) {
+      for (final spots in stdSeries.values) {
+        all.addAll(spots);
+      }
+    }
+
+    if (all.isEmpty) {
+      // 기본 범위(개월 0~228) 정도로 잡아둔다
+      return (minX: 0, maxX: 228, minY: 0, maxY: 100);
+    }
+
+    double minX = all.first.x, maxX = all.first.x, minY = all.first.y, maxY = all.first.y;
+    for (final s in all) {
+      if (s.x < minX) minX = s.x;
+      if (s.x > maxX) maxX = s.x;
+      if (s.y < minY) minY = s.y;
+      if (s.y > maxY) maxY = s.y;
+    }
+
+    final padX = ((maxX - minX).abs() * 0.03).clamp(0.5, 6.0);
+    final padY = ((maxY - minY).abs() * 0.10).clamp(0.5, 12.0);
+
+    return (
+      minX: minX - padX,
+      maxX: maxX + padX,
+      minY: minY - padY,
+      maxY: maxY + padY,
+    );
+  }
+
   double _xLabelInterval(double minX, double maxX) {
     final range = (maxX - minX).abs();
     if (range <= 12) return 1;
@@ -268,7 +385,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     if (v % step != 0) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 6),
       child: Transform.rotate(
         angle: -0.5,
         child: Text(
@@ -332,11 +449,30 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     return 20;
   }
 
+  double _floorToStep(double v, double step) {
+    if (step <= 0) return v;
+    return (v / step).floorToDouble() * step;
+  }
+
+  double _ceilToStep(double v, double step) {
+    if (step <= 0) return v;
+    return (v / step).ceilToDouble() * step;
+  }
+
   LineChartData _buildChartData(_ChartKind kind) {
-    final spots = _spotsOf(kind);
-    final b = _calcBounds(spots);
-    final xInterval = _xLabelInterval(b.minX, b.maxX);
-    final yInterval = _leftIntervalForY(kind, b.minY, b.maxY);
+    final childSpots = _spotsOf(kind);
+    final stdSeries = _stdSeries(kind);
+    final raw = _calcBoundsUnion(childSpots: childSpots, stdSeries: stdSeries);
+
+    final xInterval = _xLabelInterval(raw.minX, raw.maxX);
+    final yInterval = _leftIntervalForY(kind, raw.minY, raw.maxY);
+
+    final b = (
+      minX: raw.minX,
+      maxX: raw.maxX,
+      minY: _floorToStep(raw.minY, yInterval),
+      maxY: _ceilToStep(raw.maxY, yInterval),
+    );
 
     return LineChartData(
       minX: b.minX,
@@ -359,14 +495,17 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
-          axisNameWidget: const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text('개월',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          axisNameWidget: Transform.translate(
+            offset: const Offset(0, -8), // ✅ 위로 8px 올림 (6~12 사이로 취향 조절)
+            child: const Text(
+              '개월',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
           ),
+
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 42,
+            reservedSize: 52,
             interval: xInterval,
             getTitlesWidget: (value, meta) =>
                 _xTitleWidget(value, meta, interval: xInterval),
@@ -409,23 +548,37 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         ),
       ),
       lineBarsData: [
-        LineChartBarData(
-          spots: spots,
-          isCurved: true,
-          barWidth: 3,
-          color: _accent,
-          dotData: FlDotData(
-            show: true,
-            getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-              radius: 3.2,
-              color: _accent,
-              strokeWidth: 2,
-              strokeColor: Colors.white,
+        // 1) 표준선(뒤)
+        if (_showStandard)
+          for (final p in _percentiles)
+            if (_showP[p] == true && (stdSeries[p]?.isNotEmpty ?? false))
+              LineChartBarData(
+                spots: stdSeries[p]!,
+                isCurved: true,
+                barWidth: p == 50 ? 2.2 : 1.4,
+                color: p == 50 ? Colors.black54 : Colors.black26,
+                dotData: FlDotData(show: false),
+              ),
+
+        // 2) 아이 실제 데이터(앞)
+        if (_showChild)
+          LineChartBarData(
+            spots: childSpots,
+            isCurved: true,
+            barWidth: 3,
+            color: _accent,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                radius: 3.2,
+                color: _accent,
+                strokeWidth: 2,
+                strokeColor: Colors.white,
+              ),
             ),
+            belowBarData:
+                BarAreaData(show: true, color: _accent.withOpacity(0.10)),
           ),
-          belowBarData:
-              BarAreaData(show: true, color: _accent.withOpacity(0.10)),
-        ),
       ],
     );
   }
@@ -434,7 +587,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     _ChartKind kind,
     ({double minX, double maxX, double minY, double maxY}) bounds,
   ) {
-    final spots = _spotsOf(kind);
+    final childSpots = _spotsOf(kind);
+    final stdSeries = _stdSeries(kind);
     return LineChartData(
       minX: bounds.minX,
       maxX: bounds.maxX,
@@ -460,23 +614,34 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       ),
       lineTouchData: const LineTouchData(enabled: false),
       lineBarsData: [
-        LineChartBarData(
-          spots: spots,
-          isCurved: true,
-          barWidth: 3,
-          color: _accent,
-          dotData: FlDotData(
-            show: true,
-            getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-              radius: 3.2,
-              color: _accent,
-              strokeWidth: 2,
-              strokeColor: Colors.white,
+        if (_showStandard)
+          for (final p in _percentiles)
+            if (_showP[p] == true && (stdSeries[p]?.isNotEmpty ?? false))
+              LineChartBarData(
+                spots: stdSeries[p]!,
+                isCurved: true,
+                barWidth: p == 50 ? 2.2 : 1.4,
+                color: p == 50 ? Colors.black54 : Colors.black26,
+                dotData: FlDotData(show: false),
+              ),
+        if (_showChild)
+          LineChartBarData(
+            spots: childSpots,
+            isCurved: true,
+            barWidth: 3,
+            color: _accent,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                radius: 3.2,
+                color: _accent,
+                strokeWidth: 2,
+                strokeColor: Colors.white,
+              ),
             ),
+            belowBarData:
+                BarAreaData(show: true, color: _accent.withOpacity(0.10)),
           ),
-          belowBarData:
-              BarAreaData(show: true, color: _accent.withOpacity(0.10)),
-        ),
       ],
     );
   }
@@ -529,10 +694,23 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(height: 210, child: LineChart(_buildChartData(kind))),
+            LayoutBuilder(
+              builder: (context, c) {
+                final screenH = MediaQuery.of(context).size.height;
+                final chartH = (screenH * 0.24).clamp(220.0, 300.0);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    height: chartH,
+                    width: double.infinity,
+                    child: LineChart(_buildChartData(kind)),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 10),
             Text(
-              '그래프를 터치하면 단일 그래프로 전환',
+              '표준선(백분위) 위에 아이 데이터가 겹쳐집니다. 터치하면 단일 그래프로 전환',
               style:
                   TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55)),
             ),
@@ -581,9 +759,12 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           const SizedBox(width: 10),
           TextButton.icon(
             onPressed: () => setState(() => _selected = null),
-            icon: const Icon(Icons.view_agenda, size: 18),
+            icon: const Icon(Icons.view_agenda_outlined, size: 18),
             label: const Text('전체보기'),
-            style: TextButton.styleFrom(foregroundColor: _accent),
+            style: TextButton.styleFrom(
+              foregroundColor: _accent,
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -596,41 +777,33 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         height: 44,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? _accent : _accent.withOpacity(0.08),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? _accent : _accent.withOpacity(0.18),
-          ),
+          color: selected ? _accent : Colors.white,
+          border: Border.all(color: _accent.withOpacity(selected ? 0 : 0.18)),
         ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: selected ? Colors.white : const Color(0xFF2D1E4A),
-            ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: selected ? Colors.white : Colors.black87,
           ),
         ),
       ),
     );
   }
 
-  String _fmtY(_ChartKind kind, double y) {
-    if (kind == _ChartKind.height) return y.toStringAsFixed(1);
-    if (kind == _ChartKind.weight) return y.toStringAsFixed(2);
-    return y.toStringAsFixed(2);
-  }
-
   String _fmtX(double x) => x.toStringAsFixed(2);
+  String _fmtY(_ChartKind kind, double y) =>
+      kind == _ChartKind.bmi ? y.toStringAsFixed(1) : y.toStringAsFixed(1);
 
   Widget _selectedChartCard(_ChartKind kind) {
     final title = _titleOf(kind);
     final unit = _unitOf(kind);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
@@ -644,38 +817,70 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         children: [
           Row(
             children: [
-              Text(title,
+              Text('$title ${unit.isEmpty ? '' : '($unit)'}',
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800)),
-              if (unit.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                Text('($unit)',
-                    style:
-                        const TextStyle(fontSize: 12, color: Colors.black54)),
-              ],
+                      fontSize: 18, fontWeight: FontWeight.w900)),
               const Spacer(),
-              const Text(
+              Text(
                 '이동/확대',
                 style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _accent),
+                    color: _accent.withOpacity(0.95),
+                    fontWeight: FontWeight.w900),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                selected: _showStandard,
+                label: const Text('표준선'),
+                onSelected: (v) {
+                  setState(() {
+                    _showStandard = v;
+                    _resetZoomAndVisibleBounds(kind: kind);
+                  });
+                },
+              ),
+              FilterChip(
+                selected: _showChild,
+                label: const Text('아이 데이터'),
+                onSelected: (v) {
+                  setState(() {
+                    _showChild = v;
+                    _resetZoomAndVisibleBounds(kind: kind);
+                  });
+                },
+              ),
+              for (final p in _percentiles)
+                FilterChip(
+                  selected: _showP[p] == true,
+                  label: Text('P$p'),
+                  onSelected: (v) {
+                    setState(() {
+                      _showP[p] = v;
+                      _resetZoomAndVisibleBounds(kind: kind);
+                    });
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, c) {
-              const yAxisW = 54.0;
-              const xAxisH = 36.0;
+              const yAxisW = 46.0;
+              const xAxisH = 52.0;
               final totalW = c.maxWidth;
-              final totalH = 360.0;
+              final screenH = MediaQuery.of(context).size.height;
+              final totalH = (screenH * 0.58).clamp(440.0, 660.0);
               final plotW = (totalW - yAxisW).clamp(80.0, 5000.0);
               final plotH = (totalH - xAxisH).clamp(80.0, 5000.0);
 
               _setPlotSize(Size(plotW, plotH));
 
-              final full = _fullBounds ?? _calcBounds(_spotsOf(kind));
+              final full = _fullBounds ?? _calcBoundsUnion(childSpots: _spotsOf(kind), stdSeries: _stdSeries(kind));
               _fullBounds ??= full;
 
               final minX = _visMinX ?? full.minX;
@@ -700,8 +905,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                               minY: minY,
                               maxY: maxY,
                               accent: _accent,
-                              // ✅ 팬 시에도 “현재 min/max”가 계속 바뀌어 보이도록
-                              showMinMax: true,
+                              showMinMax: false, // ✅ 겹치던 “고정값” 제거 (핵심)
                             ),
                           ),
                           ClipRRect(
@@ -730,8 +934,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                       ),
                                     ),
                                   ),
-
-                                  // ✅ 십자선 + 중심 좌표 배지
                                   Positioned.fill(
                                     child: IgnorePointer(
                                       child: CustomPaint(
@@ -787,7 +989,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           ),
           const SizedBox(height: 10),
           Text(
-            '드래그로 이동 / 핀치 또는 버튼으로 확대·축소 (중앙 좌표는 십자선 기준)',
+            '드래그로 이동 / 핀치 또는 버튼으로 확대·축소',
             style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55)),
           ),
         ],
@@ -798,7 +1000,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   @override
   Widget build(BuildContext context) {
     final title =
-        _selected == null ? '${widget.childName} 성장 그래프' : widget.childName;
+        _selected == null ? '${widget.childName}(${_sex.label}) 성장 그래프' : '${widget.childName}(${_sex.label})';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -807,7 +1009,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         actions: [
           IconButton(
             tooltip: '새로고침',
-            onPressed: _loadEntries,
+            onPressed: () async {
+              await _loadEntries();
+              await _loadStandard();
+              if (_selected != null) {
+                _resetZoomAndVisibleBounds(kind: _selected!);
+              }
+            },
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -860,22 +1068,18 @@ class _CenterBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.90),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withOpacity(0.28)),
+        color: Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.35)),
         boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
         ],
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: Colors.black.withOpacity(0.85),
-        ),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
       ),
     );
   }
@@ -883,31 +1087,97 @@ class _CenterBadge extends StatelessWidget {
 
 class _CrosshairPainter extends CustomPainter {
   final Color accent;
-
-  _CrosshairPainter({required this.accent});
+  const _CrosshairPainter({required this.accent});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2.0;
-    final cy = size.height / 2.0;
-
     final p = Paint()
       ..color = accent
       ..strokeWidth = 1;
 
-    // 가로선
-    canvas.drawLine(Offset(0, cy), Offset(size.width, cy), p);
-    // 세로선
-    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), p);
+    final cx = size.width / 2;
+    final cy = size.height / 2;
 
-    // 중앙 점
-    final dot = Paint()..color = accent.withOpacity(0.95);
-    canvas.drawCircle(Offset(cx, cy), 2.2, dot);
+    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), p);
+    canvas.drawLine(Offset(0, cy), Offset(size.width, cy), p);
   }
 
   @override
   bool shouldRepaint(covariant _CrosshairPainter oldDelegate) =>
       oldDelegate.accent != accent;
+}
+
+class _ZoomBar extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+  final Color accent;
+
+  const _ZoomBar({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _btn(
+            icon: Icons.remove,
+            text: '축소',
+            onTap: onZoomOut,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _btn(
+            icon: Icons.add,
+            text: '확대',
+            onTap: onZoomIn,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _btn(
+            icon: Icons.center_focus_strong,
+            text: '리셋',
+            onTap: onReset,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _btn(
+      {required IconData icon,
+      required String text,
+      required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accent.withOpacity(0.18)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: accent, size: 18),
+            const SizedBox(width: 8),
+            Text(text,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _FixedYAxis extends StatelessWidget {
@@ -1000,21 +1270,10 @@ class _FixedYAxis extends StatelessWidget {
 
           return Stack(
             children: [
-              // ✅ 현재 보이는 min/max를 위/아래에 “그대로” 표시 (팬 이동에도 바로 변함)
               if (showMinMax) ...[
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: label(_fmt(maxV)),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: label(_fmt(minV)),
-                ),
+                Positioned(top: 0, right: 0, child: label(_fmt(maxV))),
+                Positioned(bottom: 0, right: 0, child: label(_fmt(minV))),
               ],
-
-              // 기존 nice ticks
               for (final v in ticks)
                 Positioned(
                   top: ((maxV - v) / range).clamp(0.0, 1.0) * (h - 12),
@@ -1067,7 +1326,7 @@ class _FixedXAxis extends StatelessWidget {
     final end = (maxX / step).floor() * step;
 
     final labels = <int>[];
-    for (int v = start.toInt(); v <= end.toInt(); v += step) {
+    for (int v = start; v <= end; v += step) {
       labels.add(v);
       if (labels.length > 14) break;
     }
@@ -1079,12 +1338,15 @@ class _FixedXAxis extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.bottomCenter,
-              child: Text(
-                '개월',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black.withOpacity(0.85),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '개월',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black.withOpacity(0.85),
+                  ),
                 ),
               ),
             ),
@@ -1098,8 +1360,8 @@ class _FixedXAxis extends StatelessWidget {
                     '$v',
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.black.withOpacity(0.82),
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black.withOpacity(0.85),
                     ),
                   ),
                 ),
@@ -1107,85 +1369,6 @@ class _FixedXAxis extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _ZoomBar extends StatelessWidget {
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final VoidCallback onReset;
-  final Color accent;
-
-  const _ZoomBar({
-    required this.onZoomIn,
-    required this.onZoomOut,
-    required this.onReset,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _zoomButton(
-            icon: Icons.remove,
-            text: '축소',
-            onTap: onZoomOut,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _zoomButton(
-            icon: Icons.add,
-            text: '확대',
-            onTap: onZoomIn,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _zoomButton(
-            icon: Icons.center_focus_strong,
-            text: '리셋',
-            onTap: onReset,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _zoomButton({
-    required IconData icon,
-    required String text,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        height: 42,
-        decoration: BoxDecoration(
-          color: accent.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent.withOpacity(0.18)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: accent),
-            const SizedBox(width: 6),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: Colors.black.withOpacity(0.80),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
