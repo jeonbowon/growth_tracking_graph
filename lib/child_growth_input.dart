@@ -4,11 +4,11 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 
 class GrowthEntry {
-  final double height;
-  final double weight;
-  final double bmi;
+  final double? height; // cm
+  final double? weight; // kg
+  final double? bmi; // kg/m^2
   final int ageMonths;
-  final String date;
+  final String date; // yyyy-MM-dd
 
   GrowthEntry({
     required this.height,
@@ -27,11 +27,11 @@ class GrowthEntry {
       };
 
   factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        height: json['height'],
-        weight: json['weight'],
-        bmi: json['bmi'],
-        ageMonths: json['ageMonths'],
-        date: json['date'],
+        height: (json['height'] as num?)?.toDouble(),
+        weight: (json['weight'] as num?)?.toDouble(),
+        bmi: (json['bmi'] as num?)?.toDouble(),
+        ageMonths: (json['ageMonths'] as num).toInt(),
+        date: json['date'] as String,
       );
 }
 
@@ -56,11 +56,29 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
 
   DateTime selectedDate = DateTime.now();
 
+  /// 월령(개월수) 계산
+  /// - (연,월) 차이를 먼저 계산
+  /// - 측정일의 '일'이 출생일의 '일'보다 이르면 아직 한 달이 덜 찼으므로 1개월 차감
+  ///
+  /// 예) 2009-11-29 출생, 2013-10-06 측정
+  ///     (2013-2009)*12 + (10-11) = 47
+  ///     6 < 29 이므로 1 차감 => 46
+  int _calcAgeMonths(DateTime birth, DateTime target) {
+    int months = (target.year - birth.year) * 12 + (target.month - birth.month);
+    if (target.day < birth.day) months -= 1;
+    if (months < 0) months = 0;
+    return months;
+  }
+
   int get ageInMonths {
-    final now = selectedDate;
-    final years = now.year - widget.birthdate.year;
-    final months = now.month - widget.birthdate.month;
-    return years * 12 + months;
+    return _calcAgeMonths(widget.birthdate, selectedDate);
+  }
+
+  double? _parsePositiveDouble(String text) {
+    final v = double.tryParse(text.trim());
+    if (v == null) return null;
+    if (v <= 0) return null;
+    return v;
   }
 
   Future<void> _pickDate() async {
@@ -79,31 +97,45 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
   }
 
   void _calculateBMI() {
-    final height = double.tryParse(heightController.text);
-    final weight = double.tryParse(weightController.text);
+    final height = _parsePositiveDouble(heightController.text);
+    final weight = _parsePositiveDouble(weightController.text);
 
-    if (height != null && weight != null && height > 0) {
+    if (height != null && weight != null) {
       final bmi = weight / ((height / 100) * (height / 100));
       setState(() {
         bmiController.text = bmi.toStringAsFixed(2);
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('키와 몸무게를 정확히 입력해주세요')),
+        const SnackBar(content: Text('BMI는 키와 몸무게를 모두 입력해야 계산됩니다')),
       );
     }
   }
 
   Future<void> saveGrowthData() async {
-    final height = double.tryParse(heightController.text) ?? 0;
-    final weight = double.tryParse(weightController.text) ?? 0;
-    final bmi = double.tryParse(bmiController.text) ?? 0;
+    final height = _parsePositiveDouble(heightController.text);
+    final weight = _parsePositiveDouble(weightController.text);
 
-    if (height <= 0 || weight <= 0) {
+    // 둘 다 없으면 저장 불가 (둘 중 하나만 있어도 저장 OK)
+    if (height == null && weight == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('키와 몸무게를 정확히 입력해주세요')),
+        const SnackBar(content: Text('키 또는 몸무게 중 하나는 입력해주세요')),
       );
       return;
+    }
+
+    // BMI: 키+몸무게 둘 다 있을 때만 의미가 있음
+    double? bmi;
+    if (height != null && weight != null) {
+      // 사용자가 BMI를 직접 입력했으면 그 값을 우선, 아니면 자동 계산
+      final typedBmi = double.tryParse(bmiController.text.trim());
+      if (typedBmi != null && typedBmi > 0) {
+        bmi = typedBmi;
+      } else {
+        bmi = weight / ((height / 100) * (height / 100));
+      }
+    } else {
+      bmi = null; // 한쪽만 있으면 BMI는 저장하지 않음
     }
 
     final entry = GrowthEntry(
@@ -123,7 +155,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     await prefs.setString(key, json.encode(growthList));
 
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('저장되었습니다')));
+        .showSnackBar(const SnackBar(content: Text('저장되었습니다')));
     Navigator.pop(context);
   }
 
@@ -142,29 +174,29 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
             Row(
               children: [
                 Text('측정일: $formattedDate'),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: _pickDate,
-                  child: Text('날짜 선택'),
+                  child: const Text('날짜 선택'),
                 ),
               ],
             ),
-            SizedBox(height: 10),
-            Text('월령: ${ageInMonths}개월', style: TextStyle(fontSize: 16)),
-            SizedBox(height: 20),
+            const SizedBox(height: 10),
+            Text('월령: ${ageInMonths}개월', style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 20),
 
             // 📏 키 입력
             TextField(
               controller: heightController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: '키 (cm)'),
+              decoration: const InputDecoration(labelText: '키 (cm)'),
             ),
 
             // ⚖️ 몸무게 입력
             TextField(
               controller: weightController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: '몸무게 (kg)'),
+              decoration: const InputDecoration(labelText: '몸무게 (kg)'),
             ),
 
             // 📊 체질량 BMI
@@ -174,18 +206,18 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                   child: TextField(
                     controller: bmiController,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: '체질량지수 (BMI)'),
+                    decoration: const InputDecoration(labelText: '체질량지수 (BMI)'),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: _calculateBMI,
-                  child: Text('자동 계산'),
+                  child: const Text('자동 계산'),
                 ),
               ],
             ),
 
-            SizedBox(height: 30),
+            const SizedBox(height: 30),
 
             // 저장 버튼 영역
             Center(
@@ -193,17 +225,17 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: saveGrowthData,
-                  icon: Icon(Icons.save_alt, size: 24),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                  icon: const Icon(Icons.save_alt, size: 24),
+                  label: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14.0),
                     child: Text(
                       '성장 데이터 저장',
                       style: TextStyle(fontSize: 18),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal, // 버튼 색상
-                    foregroundColor: Colors.white, // 텍스트/아이콘 색상
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
                     ),

@@ -2,17 +2,6 @@
 // 백업/복원(내보내기/가져오기)
 // - SharedPreferences에 저장된 childProfiles + 각 아이의 growth_{name} 데이터를 JSON으로 내보내고
 // - 선택한 JSON 파일을 다시 읽어 복원합니다.
-//
-// ✅ 의도
-// - 앱 삭제/재설치 시: 사용자가 Drive/다운로드 등에 저장해 둔 백업 파일로 복원 가능
-// - 자동 동기화가 아니라 "수동 백업/복원"입니다.
-//
-// 필요 패키지(pubspec.yaml):
-//   path_provider: ^2.1.4
-//   share_plus: ^10.0.3
-//   file_selector: ^1.0.3
-//
-// (버전은 대표님 프로젝트와 충돌 없게 조정 가능)
 
 import 'dart:convert';
 import 'dart:io';
@@ -27,6 +16,7 @@ class BackupManager {
   static const String kKeyChildProfiles = 'childProfiles';
 
   /// 백업 파일(JSON)을 생성하고 "공유하기"로 내보냅니다.
+  /// ✅ 인코딩 문제 방지를 위해 "바이트(UTF-8)"로 저장합니다.
   static Future<void> exportBackup(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -67,7 +57,9 @@ class BackupManager {
     final dir = await getTemporaryDirectory();
     final fileName = 'growth_backup_${_yyyymmdd()}.json';
     final file = File('${dir.path}/$fileName');
-    await file.writeAsString(jsonText, flush: true);
+
+    // ✅ UTF-8로 바이트 저장 (플랫폼별 writeAsString 인코딩 흔들림 방지)
+    await file.writeAsBytes(utf8.encode(jsonText), flush: true);
 
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/json', name: fileName)],
@@ -78,6 +70,7 @@ class BackupManager {
 
   /// JSON 백업 파일을 선택하여 SharedPreferences로 복원합니다.
   /// - 덮어쓰기 방식(기존 childProfiles/growth_* 를 백업 파일 기준으로 설정)
+  /// ✅ 인코딩 문제 방지를 위해 "바이트 → UTF-8 decode"로 읽습니다.
   static Future<void> importBackup(BuildContext context) async {
     final XFile? file = await openFile(
       acceptedTypeGroups: const [
@@ -87,7 +80,15 @@ class BackupManager {
 
     if (file == null) return; // 사용자가 취소
 
-    final text = await file.readAsString();
+    // ✅ XFile.readAsString() 대신, 바이트로 읽어서 UTF-8로 디코딩 고정
+    final bytes = await file.readAsBytes();
+    String text = utf8.decode(bytes);
+
+    // ✅ 일부 환경에서 BOM(﻿)이 붙으면 jsonDecode가 실패할 수 있어 제거
+    if (text.isNotEmpty && text.codeUnitAt(0) == 0xFEFF) {
+      text = text.substring(1);
+    }
+
     final decoded = jsonDecode(text);
 
     if (decoded is! Map) {

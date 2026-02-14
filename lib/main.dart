@@ -1,12 +1,24 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'page_main.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-void main() => runApp(GrowthApp());
+import 'page_main.dart';
+import 'ad_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Google Mobile Ads SDK 초기화
+  await MobileAds.instance.initialize();
+
+  // 앱 전역 공통 배너 1회 로드
+  AdService.instance.loadBanner();
+
+  runApp(GrowthApp());
+}
 
 class GrowthApp extends StatelessWidget {
-  // 고급 보라 톤 팔레트 (전체 앱 공통)
   static const Color _seed = Color(0xFF7C5CFF);
   static const Color _appBar = Color(0xFF2D1E4A);
   static const Color _bg = Color(0xFFF6F3FF);

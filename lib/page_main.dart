@@ -10,6 +10,8 @@ import 'child_growth_input.dart';
 import 'child_growth_list.dart';
 import 'child_growth_chart.dart';
 import 'backup_manager.dart';
+import 'common_banner.dart';
+
 
 class ChildProfile {
   String name;
@@ -197,6 +199,7 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const CommonBanner(),
       backgroundColor: _bg,
       appBar: AppBar(
         title: const Text('우리아이 성장 그래프'),

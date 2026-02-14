@@ -8,27 +8,42 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'dart:math' as math;
 
 class GrowthEntry {
-  final double heightCm;
-  final double weightKg;
+  /// 사용자가 해당 날짜에 입력하지 않았을 수 있으므로 nullable
+  final double? heightCm;
+  final double? weightKg;
+
+  /// 저장된 BMI(있을 수도, 없을 수도)
+  final double? bmiValue;
+
   final int ageMonths;
   final String date;
 
   const GrowthEntry({
     required this.heightCm,
     required this.weightKg,
+    required this.bmiValue,
     required this.ageMonths,
     required this.date,
   });
 
-  double get bmi {
-    final m = heightCm / 100.0;
-    if (m <= 0) return 0;
-    return weightKg / (m * m);
+  /// BMI는 키+몸무게가 모두 있을 때만 의미가 있습니다.
+  /// 1) 저장된 bmiValue가 있으면 우선 사용
+  /// 2) 없으면 키/몸무게로 계산
+  /// 3) 둘 중 하나라도 없으면 null
+  double? get bmi {
+    if (bmiValue != null && bmiValue! > 0) return bmiValue;
+    final h = heightCm;
+    final w = weightKg;
+    if (h == null || w == null) return null;
+    final m = h / 100.0;
+    if (m <= 0) return null;
+    return w / (m * m);
   }
 
   factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        heightCm: (json['height'] as num).toDouble(),
-        weightKg: (json['weight'] as num).toDouble(),
+        heightCm: (json['height'] as num?)?.toDouble(),
+        weightKg: (json['weight'] as num?)?.toDouble(),
+        bmiValue: (json['bmi'] as num?)?.toDouble(),
         ageMonths: (json['ageMonths'] as num).toInt(),
         date: (json['date'] ?? '').toString(),
       );
@@ -58,9 +73,14 @@ extension _ChartKindX on _ChartKind {
 
 class ChildGrowthChart extends StatefulWidget {
   final String childName;
+
   /// 프로필에서 확정된 성별을 전달하세요. true=남아, false=여아
   final bool isMale;
-  const ChildGrowthChart({required this.childName, required this.isMale, Key? key}) : super(key: key);
+  const ChildGrowthChart({
+    required this.childName,
+    required this.isMale,
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<ChildGrowthChart> createState() => _ChildGrowthChartState();
@@ -84,6 +104,15 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
 
   // 백분위 표시 (표준선)
   static const List<int> _percentiles = [3, 10, 25, 50, 75, 90, 97];
+  static const Map<int, Color> _pLineColors = {
+    3: Color(0xFF1565C0),  // blue
+    10: Color(0xFF00838F), // teal
+    25: Color(0xFF2E7D32), // green
+    50: Color(0xFF424242), // grey (median)
+    75: Color(0xFFF9A825), // amber
+    90: Color(0xFFEF6C00), // orange
+    97: Color(0xFFC62828), // red
+  };
   final Map<int, bool> _showP = {for (final p in _percentiles) p: true};
 
   // 아이 데이터 표시
@@ -92,6 +121,12 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   List<GrowthEntry> _entries = [];
   _ChartKind? _selected; // null = preview list
   final TransformationController _tc = TransformationController();
+
+  // ✅ 단일 그래프 화면에서 "차트 위에서 조작 중"일 때만 스크롤을 잠그기 위한 플래그
+  // - 차트 영역에서 손가락이 내려간 순간(포인터 다운)부터 스크롤 잠금
+  // - 차트 영역에서 손을 떼면(포인터 업/캔슬) 즉시 해제
+  // 이렇게 하면 "차트 밖"을 터치하면 항상 스크롤이 동작합니다.
+  bool _isPointerDownOnChart = false;
 
   static const double _minZoom = 0.05;
   static const double _maxZoom = 50.0;
@@ -331,7 +366,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     return (minX: minX, maxX: maxX, minY: yMinRaw - pad, maxY: yMaxRaw + pad);
   }
 
-
   ({double minX, double maxX, double minY, double maxY}) _calcBoundsUnion({
     required List<FlSpot> childSpots,
     required Map<int, List<FlSpot>> stdSeries,
@@ -350,7 +384,10 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       return (minX: 0, maxX: 228, minY: 0, maxY: 100);
     }
 
-    double minX = all.first.x, maxX = all.first.x, minY = all.first.y, maxY = all.first.y;
+    double minX = all.first.x,
+        maxX = all.first.x,
+        minY = all.first.y,
+        maxY = all.first.y;
     for (final s in all) {
       if (s.x < minX) minX = s.x;
       if (s.x > maxX) maxX = s.x;
@@ -418,19 +455,60 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     }
   }
 
+  Color _pColor(int p) => _pLineColors[p] ?? Colors.black26;
+
+  Widget _chipLabelWithColor(Color c, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: c,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(text),
+      ],
+    );
+  }
+
+  FilterChip _smallChip({
+    required bool selected,
+    required Widget label,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return FilterChip(
+      selected: selected,
+      label: label,
+      onSelected: onSelected,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+      padding: EdgeInsets.zero,
+    );
+  }
+
+  /// ✅ null 값은 점을 찍지 않음
   List<FlSpot> _spotsOf(_ChartKind k) {
     switch (k) {
       case _ChartKind.height:
         return _entries
-            .map((e) => FlSpot(e.ageMonths.toDouble(), e.heightCm))
+            .where((e) => e.heightCm != null)
+            .map((e) => FlSpot(e.ageMonths.toDouble(), e.heightCm!))
             .toList();
       case _ChartKind.weight:
         return _entries
-            .map((e) => FlSpot(e.ageMonths.toDouble(), e.weightKg))
+            .where((e) => e.weightKg != null)
+            .map((e) => FlSpot(e.ageMonths.toDouble(), e.weightKg!))
             .toList();
       case _ChartKind.bmi:
         return _entries
-            .map((e) => FlSpot(e.ageMonths.toDouble(), e.bmi))
+            .where((e) => e.bmi != null)
+            .map((e) => FlSpot(e.ageMonths.toDouble(), e.bmi!))
             .toList();
     }
   }
@@ -496,13 +574,12 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           axisNameWidget: Transform.translate(
-            offset: const Offset(0, -8), // ✅ 위로 8px 올림 (6~12 사이로 취향 조절)
+            offset: const Offset(0, -8),
             child: const Text(
               '개월',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
-
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 52,
@@ -555,13 +632,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               LineChartBarData(
                 spots: stdSeries[p]!,
                 isCurved: true,
-                barWidth: p == 50 ? 2.2 : 1.4,
-                color: p == 50 ? Colors.black54 : Colors.black26,
+                barWidth: p == 50 ? 2.4 : 1.6,
+                color: _pColor(p).withOpacity(p == 50 ? 0.80 : 0.55),
                 dotData: FlDotData(show: false),
               ),
 
-        // 2) 아이 실제 데이터(앞)
-        if (_showChild)
+        // 2) 아이 실제 데이터(앞) - ✅ spots가 있을 때만 그림
+        if (_showChild && childSpots.isNotEmpty)
           LineChartBarData(
             spots: childSpots,
             isCurved: true,
@@ -570,9 +647,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             dotData: FlDotData(
               show: true,
               getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                radius: 3.2,
+                radius: 1.6,
                 color: _accent,
-                strokeWidth: 2,
+                strokeWidth: 1.2,
                 strokeColor: Colors.white,
               ),
             ),
@@ -620,11 +697,11 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               LineChartBarData(
                 spots: stdSeries[p]!,
                 isCurved: true,
-                barWidth: p == 50 ? 2.2 : 1.4,
-                color: p == 50 ? Colors.black54 : Colors.black26,
+                barWidth: p == 50 ? 2.4 : 1.6,
+                color: _pColor(p).withOpacity(p == 50 ? 0.80 : 0.55),
                 dotData: FlDotData(show: false),
               ),
-        if (_showChild)
+        if (_showChild && childSpots.isNotEmpty)
           LineChartBarData(
             spots: childSpots,
             isCurved: true,
@@ -633,9 +710,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             dotData: FlDotData(
               show: true,
               getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                radius: 3.2,
+                radius: 1.6,
                 color: _accent,
-                strokeWidth: 2,
+                strokeWidth: 1.2,
                 strokeColor: Colors.white,
               ),
             ),
@@ -654,6 +731,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       onTap: () {
         setState(() {
           _selected = kind;
+          _isPointerDownOnChart = false;
           _resetZoomAndVisibleBounds(kind: kind);
         });
       },
@@ -708,12 +786,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                 );
               },
             ),
-            const SizedBox(height: 10),
-            Text(
-              '표준선(백분위) 위에 아이 데이터가 겹쳐집니다. 터치하면 단일 그래프로 전환',
-              style:
-                  TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55)),
-            ),
           ],
         ),
       ),
@@ -734,6 +806,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             child: _segButton('키', k == _ChartKind.height, () {
               setState(() {
                 _selected = _ChartKind.height;
+                _isPointerDownOnChart = false;
                 _resetZoomAndVisibleBounds(kind: _ChartKind.height);
               });
             }),
@@ -743,6 +816,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             child: _segButton('몸무게', k == _ChartKind.weight, () {
               setState(() {
                 _selected = _ChartKind.weight;
+                _isPointerDownOnChart = false;
                 _resetZoomAndVisibleBounds(kind: _ChartKind.weight);
               });
             }),
@@ -752,13 +826,19 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             child: _segButton('BMI', k == _ChartKind.bmi, () {
               setState(() {
                 _selected = _ChartKind.bmi;
+                _isPointerDownOnChart = false;
                 _resetZoomAndVisibleBounds(kind: _ChartKind.bmi);
               });
             }),
           ),
           const SizedBox(width: 10),
           TextButton.icon(
-            onPressed: () => setState(() => _selected = null),
+            onPressed: () {
+              setState(() {
+                _selected = null;
+                _isPointerDownOnChart = false;
+              });
+            },
             icon: const Icon(Icons.view_agenda_outlined, size: 18),
             label: const Text('전체보기'),
             style: TextButton.styleFrom(
@@ -834,7 +914,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilterChip(
+              _smallChip(
                 selected: _showStandard,
                 label: const Text('표준선'),
                 onSelected: (v) {
@@ -844,7 +924,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                   });
                 },
               ),
-              FilterChip(
+              _smallChip(
                 selected: _showChild,
                 label: const Text('아이 데이터'),
                 onSelected: (v) {
@@ -855,9 +935,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                 },
               ),
               for (final p in _percentiles)
-                FilterChip(
+                _smallChip(
                   selected: _showP[p] == true,
-                  label: Text('P$p'),
+                  label: _chipLabelWithColor(_pColor(p), 'P$p'),
                   onSelected: (v) {
                     setState(() {
                       _showP[p] = v;
@@ -880,7 +960,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
 
               _setPlotSize(Size(plotW, plotH));
 
-              final full = _fullBounds ?? _calcBoundsUnion(childSpots: _spotsOf(kind), stdSeries: _stdSeries(kind));
+              final full = _fullBounds ??
+                  _calcBoundsUnion(
+                      childSpots: _spotsOf(kind), stdSeries: _stdSeries(kind));
               _fullBounds ??= full;
 
               final minX = _visMinX ?? full.minX;
@@ -905,7 +987,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                               minY: minY,
                               maxY: maxY,
                               accent: _accent,
-                              showMinMax: false, // ✅ 겹치던 “고정값” 제거 (핵심)
+                              showMinMax: false,
                             ),
                           ),
                           ClipRRect(
@@ -916,20 +998,39 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                               child: Stack(
                                 children: [
                                   Positioned.fill(
-                                    child: InteractiveViewer(
-                                      transformationController: _tc,
-                                      minScale: _minZoom,
-                                      maxScale: _maxZoom,
-                                      constrained: false,
-                                      panEnabled: true,
-                                      scaleEnabled: true,
-                                      boundaryMargin:
-                                          const EdgeInsets.all(100000),
-                                      child: SizedBox(
-                                        width: plotW,
-                                        height: plotH,
-                                        child: LineChart(
-                                          _buildPlotOnlyChartData(kind, full),
+                                    child: Listener(
+                                      // ✅ 차트 위에서 손가락이 내려간 순간부터 스크롤 잠금
+                                      onPointerDown: (_) {
+                                        if (!_isPointerDownOnChart) {
+                                          setState(() => _isPointerDownOnChart = true);
+                                        }
+                                      },
+                                      onPointerUp: (_) {
+                                        if (_isPointerDownOnChart) {
+                                          setState(() => _isPointerDownOnChart = false);
+                                        }
+                                      },
+                                      onPointerCancel: (_) {
+                                        if (_isPointerDownOnChart) {
+                                          setState(() => _isPointerDownOnChart = false);
+                                        }
+                                      },
+                                      behavior: HitTestBehavior.opaque,
+                                      child: InteractiveViewer(
+                                        transformationController: _tc,
+                                        minScale: _minZoom,
+                                        maxScale: _maxZoom,
+                                        constrained: false,
+                                        panEnabled: true,
+                                        scaleEnabled: true,
+                                        boundaryMargin:
+                                            const EdgeInsets.all(100000),
+                                        child: SizedBox(
+                                          width: plotW,
+                                          height: plotH,
+                                          child: LineChart(
+                                            _buildPlotOnlyChartData(kind, full),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -999,8 +1100,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        _selected == null ? '${widget.childName}(${_sex.label}) 성장 그래프' : '${widget.childName}(${_sex.label})';
+    final title = _selected == null
+        ? '${widget.childName}(${_sex.label}) 성장 그래프'
+        : '${widget.childName}(${_sex.label})';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -1032,6 +1134,24 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               ? ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _accent.withOpacity(0.10)),
+                      ),
+                      child: Text(
+                        '표준선(백분위) 위에 아이 데이터가 겹쳐집니다.\n그래프를 터치하면 단일 그래프로 전환됩니다.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.3,
+                          color: Colors.black.withOpacity(0.60),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     _previewCard(_ChartKind.height),
                     const SizedBox(height: 14),
                     _previewCard(_ChartKind.weight),
@@ -1043,11 +1163,18 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                   children: [
                     _segmentedTabs(),
                     Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                        children: [
-                          _selectedChartCard(_selected!),
-                        ],
+                      child: SingleChildScrollView(
+                        physics: _isPointerDownOnChart
+                            ? const NeverScrollableScrollPhysics()
+                            : const BouncingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          16,
+                          16,
+                          // ✅ 하단 시스템 영역(제스처 바/네비 바) + 약간의 여유
+                          (MediaQuery.of(context).padding.bottom + 18).clamp(18.0, 80.0),
+                        ),
+                        child: _selectedChartCard(_selected!),
                       ),
                     ),
                   ],

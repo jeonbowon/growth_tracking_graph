@@ -3,23 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-// 성장 데이터 모델
+// 성장 데이터 모델 (입력 화면과 동일 스키마: height/weight/bmi는 nullable)
 class GrowthEntry {
-  double height;
-  double weight;
-  int ageMonths;
-  String date;
+  final double? height; // cm
+  final double? weight; // kg
+  final double? bmi; // kg/m^2
+  final int ageMonths;
+  final String date; // yyyy-MM-dd
 
   GrowthEntry({
     required this.height,
     required this.weight,
+    required this.bmi,
     required this.ageMonths,
     required this.date,
   });
 
   factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        height: (json['height'] as num).toDouble(),
-        weight: (json['weight'] as num).toDouble(),
+        height: (json['height'] as num?)?.toDouble(),
+        weight: (json['weight'] as num?)?.toDouble(),
+        bmi: (json['bmi'] as num?)?.toDouble(),
         ageMonths: (json['ageMonths'] as num).toInt(),
         date: json['date'] as String,
       );
@@ -27,6 +30,7 @@ class GrowthEntry {
   Map<String, dynamic> toJson() => {
         'height': height,
         'weight': weight,
+        'bmi': bmi,
         'ageMonths': ageMonths,
         'date': date,
       };
@@ -59,19 +63,57 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     _loadEntries();
   }
 
+  double? _parsePositiveDoubleAllowNull(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return null;
+    final v = double.tryParse(t);
+    if (v == null) return null;
+    if (v <= 0) return null;
+    return v;
+  }
+
+  double? _calcBmiIfPossible(double? height, double? weight) {
+    if (height == null || weight == null) return null;
+    final h = height / 100.0;
+    if (h <= 0) return null;
+    return weight / (h * h);
+  }
+
+  String _fmtDouble(double? v, {int fraction = 1, String empty = '-'}) {
+    if (v == null) return empty;
+    return v.toStringAsFixed(fraction);
+  }
+
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString('growth_${widget.childName}');
     if (data == null) {
-      setState(() => entries = []);
+      if (mounted) setState(() => entries = []);
       return;
     }
 
-    final list = (json.decode(data) as List).cast<dynamic>();
-    final parsed = list.map((e) => GrowthEntry.fromJson(e as Map<String, dynamic>)).toList()
-      ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+    try {
+      final raw = json.decode(data);
+      if (raw is! List) {
+        if (mounted) setState(() => entries = []);
+        return;
+      }
 
-    setState(() => entries = parsed);
+      final parsed = raw
+          .whereType<Map<String, dynamic>>()
+          .map((e) => GrowthEntry.fromJson(e))
+          .toList()
+        ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+
+      if (mounted) setState(() => entries = parsed);
+    } catch (e) {
+      // 여기서 깨지면, 사용자는 "리스트에 안 뜬다" 라고 말하게 됩니다.
+      // 깨지지 않게 만드는 게 이번 수정의 핵심입니다.
+      if (mounted) setState(() => entries = []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('성장 데이터 로딩 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
   Future<void> _saveEntries() async {
@@ -114,35 +156,52 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
 
   void _editEntryDialog(int index) {
     final e = entries[index];
-    final heightController = TextEditingController(text: e.height.toString());
-    final weightController = TextEditingController(text: e.weight.toString());
+
+    final heightController = TextEditingController(text: e.height?.toString() ?? '');
+    final weightController = TextEditingController(text: e.weight?.toString() ?? '');
+    final bmiController = TextEditingController(text: e.bmi?.toString() ?? '');
     final ageController = TextEditingController(text: e.ageMonths.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('기록 수정'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('날짜: ${e.date}'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: ageController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '나이 (개월)'),
-            ),
-            TextField(
-              controller: heightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '키 (cm)'),
-            ),
-            TextField(
-              controller: weightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '몸무게 (kg)'),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('날짜: ${e.date}'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: ageController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: '나이 (개월)'),
+              ),
+              TextField(
+                controller: heightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: '키 (cm)'),
+              ),
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: '몸무게 (kg)'),
+              ),
+              TextField(
+                controller: bmiController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'BMI (자동/수동)'),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '※ 키+몸무게가 있으면 BMI는 자동 계산 가능합니다.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -152,15 +211,40 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _accent),
             onPressed: () async {
+              final newAge = int.tryParse(ageController.text.trim()) ?? e.ageMonths;
+              final newH = _parsePositiveDoubleAllowNull(heightController.text);
+              final newW = _parsePositiveDoubleAllowNull(weightController.text);
+
+              // 둘 다 비면 저장 불가 (입력 화면과 동일 정책)
+              if (newH == null && newW == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('키 또는 몸무게 중 하나는 입력되어야 합니다.')),
+                );
+                return;
+              }
+
+              // BMI는:
+              // - 사용자가 숫자로 넣었으면 그 값 우선
+              // - 아니면 키/몸무게로 자동 계산
+              double? newBmi;
+              final typedBmi = _parsePositiveDoubleAllowNull(bmiController.text);
+              if (typedBmi != null) {
+                newBmi = typedBmi;
+              } else {
+                newBmi = _calcBmiIfPossible(newH, newW);
+              }
+
               setState(() {
                 entries[index] = GrowthEntry(
-                  height: double.tryParse(heightController.text) ?? e.height,
-                  weight: double.tryParse(weightController.text) ?? e.weight,
-                  ageMonths: int.tryParse(ageController.text) ?? e.ageMonths,
+                  height: newH,
+                  weight: newW,
+                  bmi: newBmi,
+                  ageMonths: newAge,
                   date: e.date,
                 );
                 entries.sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
               });
+
               await _saveEntries();
               if (mounted) Navigator.pop(context);
             },
@@ -200,6 +284,11 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final e = entries[index];
+
+                  final hText = _fmtDouble(e.height, fraction: 1);
+                  final wText = _fmtDouble(e.weight, fraction: 1);
+                  final bmiText = _fmtDouble(e.bmi, fraction: 2);
+
                   return InkWell(
                     onTap: () => _editEntryDialog(index),
                     borderRadius: BorderRadius.circular(18),
@@ -242,7 +331,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '키 ${e.height.toStringAsFixed(1)}cm / 몸무게 ${e.weight.toStringAsFixed(1)}kg',
+                                  '키 $hText cm / 몸무게 $wText kg / BMI $bmiText',
                                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                                 ),
                               ],
