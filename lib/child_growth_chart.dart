@@ -1,8 +1,10 @@
 // child_growth_chart.dart
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'dart:math' as math;
@@ -1105,7 +1107,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         : '${widget.childName}(${_sex.label})';
 
     return Scaffold(
-      backgroundColor: _bg,
+      bottomNavigationBar: const _GraphPageBanner(),
+            backgroundColor: _bg,
       appBar: AppBar(
         title: Text(title),
         actions: [
@@ -1496,6 +1499,80 @@ class _FixedXAxis extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// 그래프 페이지 전용 배너 광고 (이 페이지에서만 생성/표시)
+// - BannerAd를 공유하지 않기 때문에 "AdWidget already in the Widget tree" 오류가 나지 않습니다.
+// - 테스트 광고 단위 ID를 사용했습니다. 출시 전 AdMob에서 만든 "배너 광고 단위 ID"로 교체하세요.
+// ─────────────────────────────────────────────────────────────
+class _GraphPageBanner extends StatefulWidget {
+  const _GraphPageBanner({super.key});
+
+  @override
+  State<_GraphPageBanner> createState() => _GraphPageBannerState();
+}
+
+class _GraphPageBannerState extends State<_GraphPageBanner> {
+  BannerAd? _banner;
+  bool _loaded = false;
+
+  String get _adUnitId {
+    // Google 공식 테스트 배너 광고 단위 ID
+    if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/7813119098';
+    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/2934735716';
+    return '';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    final unitId = _adUnitId;
+    if (unitId.isEmpty) return;
+
+    _banner = BannerAd(
+      adUnitId: unitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          if (!mounted) return;
+          setState(() => _loaded = true);
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _banner = null;
+            _loaded = false;
+          });
+        },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _banner?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _banner == null) return const SizedBox.shrink();
+
+    final ad = _banner!;
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        width: double.infinity,
+        height: ad.size.height.toDouble(),
+        child: AdWidget(ad: ad),
+      ),
     );
   }
 }

@@ -12,12 +12,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ad_service.dart';
+
 class BackupManager {
   static const String kKeyChildProfiles = 'childProfiles';
 
   /// 백업 파일(JSON)을 생성하고 "공유하기"로 내보냅니다.
   /// ✅ 인코딩 문제 방지를 위해 "바이트(UTF-8)"로 저장합니다.
   static Future<void> exportBackup(BuildContext context) async {
+    // ✅ 내보내기 시작 전에 보상광고 1회
+    final ok = await AdService.instance.gateWithRewardedAd(context);
+    if (!ok) return;
+
     final prefs = await SharedPreferences.getInstance();
 
     final profilesStr = prefs.getString(kKeyChildProfiles) ?? '[]';
@@ -72,6 +78,10 @@ class BackupManager {
   /// - 덮어쓰기 방식(기존 childProfiles/growth_* 를 백업 파일 기준으로 설정)
   /// ✅ 인코딩 문제 방지를 위해 "바이트 → UTF-8 decode"로 읽습니다.
   static Future<void> importBackup(BuildContext context) async {
+    // ✅ 가져오기 시작 전에 보상광고 1회
+    final ok = await AdService.instance.gateWithRewardedAd(context);
+    if (!ok) return;
+
     final XFile? file = await openFile(
       acceptedTypeGroups: const [
         XTypeGroup(label: 'JSON', extensions: ['json']),
