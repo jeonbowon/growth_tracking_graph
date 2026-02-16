@@ -542,19 +542,41 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     );
   }
 
+  /// 옵션 칩(표준선/아이데이터/P3~P97)
+  /// - ✅ 체크마크 대신 "색"으로 선택 상태를 표현
+  /// - ✅ 칩 자체를 더 작게 만들어 상단 공간을 절약
   FilterChip _smallChip({
     required bool selected,
     required Widget label,
     required ValueChanged<bool> onSelected,
+    Color? activeColor,
   }) {
+    final c = activeColor ?? _accent;
     return FilterChip(
       selected: selected,
       label: label,
       onSelected: onSelected,
+
+      // ✅ 체크 표시 제거
+      showCheckmark: false,
+
+      // ✅ 선택/비선택 상태를 색으로 표현
+      backgroundColor: Colors.white,
+      selectedColor: c.withOpacity(0.18),
+      side: BorderSide(
+        color: selected ? c.withOpacity(0.85) : Colors.black12,
+        width: 1,
+      ),
+
+      // ✅ 더 컴팩트하게
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+        color: selected ? c.withOpacity(0.95) : Colors.black87,
+      ),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
       padding: EdgeInsets.zero,
     );
   }
@@ -627,6 +649,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       gridData: FlGridData(
         show: true,
         drawVerticalLine: true,
+        // ✅ 현재 화면 범위에 맞춘 간격(라벨과 동일한 step)
+        horizontalInterval: yInterval,
+        verticalInterval: xInterval,
         getDrawingHorizontalLine: (_) =>
             FlLine(color: _accent.withOpacity(0.10), strokeWidth: 1),
         getDrawingVerticalLine: (_) =>
@@ -733,6 +758,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   ) {
     final childSpots = _spotsOf(kind);
     final stdSeries = _stdSeries(kind);
+    // ✅ 확대/이동(Plot-only) 화면에서도 축/그리드 간격을 계산해 더 촘촘하게 표시
+    final xInterval = _xLabelInterval(bounds.minX, bounds.maxX);
+    final yInterval = _leftIntervalForY(kind, bounds.minY, bounds.maxY);
     return LineChartData(
       minX: bounds.minX,
       maxX: bounds.maxX,
@@ -984,6 +1012,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showStandard,
                 label: const Text('표준선'),
+                activeColor: _accent,
                 onSelected: (v) {
                   setState(() {
                     _showStandard = v;
@@ -994,6 +1023,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showChild,
                 label: const Text('아이 데이터'),
+                activeColor: _accent,
                 onSelected: (v) {
                   setState(() {
                     _showChild = v;
@@ -1005,6 +1035,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                 _smallChip(
                   selected: _showP[p] == true,
                   label: _chipLabelWithColor(_pColor(p), 'P$p'),
+                  activeColor: _pColor(p),
                   onSelected: (v) {
                     setState(() {
                       _showP[p] = v;
@@ -1426,13 +1457,13 @@ class _FixedYAxis extends StatelessWidget {
 
   List<double> _buildTicks(double minV, double maxV) {
     final range = (maxV - minV).abs();
-    final step = _niceStep(range, targetTicks: 6);
+    final step = _niceStep(range, targetTicks: 10);
 
     final start = (minV / step).floor() * step;
     final end = (maxV / step).ceil() * step;
 
     final ticks = <double>[];
-    final maxCount = 12;
+    final maxCount = 22;
     for (double v = start; v <= end + step * 0.5; v += step) {
       ticks.add(v);
       if (ticks.length > maxCount) break;
@@ -1451,7 +1482,7 @@ class _FixedYAxis extends StatelessWidget {
           t,
           textAlign: TextAlign.right,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 9,
             color: Colors.black.withOpacity(0.82),
             fontWeight: FontWeight.w800,
           ),
@@ -1477,7 +1508,7 @@ class _FixedYAxis extends StatelessWidget {
                     _fmt(v),
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9,
                       color: Colors.black.withOpacity(0.75),
                       fontWeight: FontWeight.w600,
                     ),
