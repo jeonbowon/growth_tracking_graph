@@ -36,10 +36,12 @@ class GrowthEntry {
 }
 
 class ChildGrowthInput extends StatefulWidget {
+  final String childId;
   final String childName;
   final DateTime birthdate;
 
   const ChildGrowthInput({
+    required this.childId,
     required this.childName,
     required this.birthdate,
     Key? key,
@@ -55,6 +57,14 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
   final bmiController = TextEditingController();
 
   DateTime selectedDate = DateTime.now();
+
+  @override
+  void dispose() {
+    heightController.dispose();
+    weightController.dispose();
+    bmiController.dispose();
+    super.dispose();
+  }
 
   /// 월령(개월수) 계산
   /// - (연,월) 차이를 먼저 계산
@@ -147,7 +157,19 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     );
 
     final prefs = await SharedPreferences.getInstance();
-    final key = 'growth_${widget.childName}';
+
+    // ✅ 레거시(name 기반) -> id 기반 자동 마이그레이션
+    final idKey = 'growth_${widget.childId}';
+    final legacyKey = 'growth_${widget.childName}';
+    final idVal = prefs.getString(idKey);
+    if (idVal == null || idVal.trim().isEmpty) {
+      final legacyVal = prefs.getString(legacyKey);
+      if (legacyVal != null && legacyVal.trim().isNotEmpty) {
+        await prefs.setString(idKey, legacyVal);
+      }
+    }
+
+    final key = idKey;
     final existing = prefs.getString(key);
     List<dynamic> growthList = existing != null ? json.decode(existing) : [];
 

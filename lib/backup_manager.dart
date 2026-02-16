@@ -1,6 +1,6 @@
 // backup_manager.dart
 // 백업/복원(내보내기/가져오기)
-// - SharedPreferences에 저장된 childProfiles + 각 아이의 growth_{name} 데이터를 JSON으로 내보내고
+// - SharedPreferences에 저장된 childProfiles + 각 아이의 growth_{id} 데이터를 JSON으로 내보내고
 // - 선택한 JSON 파일을 다시 읽어 복원합니다.
 
 import 'dart:convert';
@@ -35,27 +35,53 @@ class BackupManager {
     }
 
     // 각 아이별 성장 데이터 수집
-    final growth = <String, dynamic>{};
+    // ✅ v2: id 기반 저장이 기본
+    // ✅ 호환: name 기반도 같이 담아서, 구버전 앱에서도 복원 가능
+    final growthById = <String, dynamic>{};
+    final growthByName = <String, dynamic>{};
     for (final p in profiles) {
       if (p is! Map) continue;
-      final name = (p['name'] ?? '').toString().trim();
-      if (name.isEmpty) continue;
 
-      final key = 'growth_$name';
-      final v = prefs.getString(key);
-      if (v != null && v.trim().isNotEmpty) {
-        growth[name] = v; // 문자열(JSON 배열)을 그대로 저장 (복원 시 그대로 다시 넣음)
-      } else {
-        growth[name] = '[]';
+      final id = (p['id'] ?? '').toString().trim();
+      final name = (p['name'] ?? '').toString().trim();
+      if (id.isEmpty && name.isEmpty) continue;
+
+      // 1) id 기준
+      if (id.isNotEmpty) {
+        final idKey = 'growth_$id';
+        final vId = prefs.getString(idKey);
+        if (vId != null && vId.trim().isNotEmpty) {
+          growthById[id] = vId;
+        } else {
+          // id 데이터가 비어있으면 name 데이터(레거시)를 참고
+          final legacyKey = 'growth_$name';
+          final vLegacy = prefs.getString(legacyKey);
+          growthById[id] = (vLegacy != null && vLegacy.trim().isNotEmpty) ? vLegacy : '[]';
+        }
+      }
+
+      // 2) name 기준(호환)
+      if (name.isNotEmpty) {
+        final nameKey = 'growth_$name';
+        final vName = prefs.getString(nameKey);
+        if (vName != null && vName.trim().isNotEmpty) {
+          growthByName[name] = vName;
+        } else {
+          // name 쪽이 비어있으면 id 쪽을 참고
+          final idKey = 'growth_$id';
+          final vId = prefs.getString(idKey);
+          growthByName[name] = (vId != null && vId.trim().isNotEmpty) ? vId : '[]';
+        }
       }
     }
 
     final payload = <String, dynamic>{
-      'schema': 1,
+      'schema': 2,
       'app': '우리아이 성장 그래프',
       'createdAt': DateTime.now().toIso8601String(),
       'childProfiles': profiles,
-      'growthByChildName': growth,
+      'growthByChildId': growthById,
+      'growthByChildName': growthByName,
     };
 
     final jsonText = const JsonEncoder.withIndent('  ').convert(payload);
@@ -106,17 +132,19 @@ class BackupManager {
     }
 
     final schema = decoded['schema'];
-    if (schema != 1) {
+    if (schema != 1 && schema != 2) {
       throw Exception('지원하지 않는 백업 스키마입니다: $schema');
     }
 
     final profiles = decoded['childProfiles'];
-    final growth = decoded['growthByChildName'];
+    final growthByName = decoded['growthByChildName'];
+    final growthById = decoded['growthByChildId'];
 
     if (profiles is! List) {
       throw Exception('백업 파일에 childProfiles가 없습니다.');
     }
-    if (growth is! Map) {
+    // schema=1은 name 기반만 존재, schema=2는 id 기반이 존재할 수 있음
+    if (schema == 1 && growthByName is! Map) {
       throw Exception('백업 파일에 growthByChildName이 없습니다.');
     }
 
@@ -126,12 +154,42 @@ class BackupManager {
     await prefs.setString(kKeyChildProfiles, jsonEncode(profiles));
 
     // 2) 성장 데이터 덮어쓰기
-    for (final entry in growth.entries) {
-      final name = entry.key.toString().trim();
-      if (name.isEmpty) continue;
+    // 2-1) id 기반(있으면 우선)
+    if (growthById is Map) {
+      for (final entry in growthById.entries) {
+        final id = entry.key.toString().trim();
+        if (id.isEmpty) continue;
+        final value = entry.value?.toString() ?? '[]';
+        await prefs.setString('growth_$id', value);
+      }
+    }
 
-      final value = entry.value?.toString() ?? '[]';
-      await prefs.setString('growth_$name', value);
+    // 2-2) name 기반(호환/레거시)
+    if (growthByName is Map) {
+      for (final entry in growthByName.entries) {
+        final name = entry.key.toString().trim();
+        if (name.isEmpty) continue;
+        final value = entry.value?.toString() ?? '[]';
+        await prefs.setString('growth_$name', value);
+      }
+    }
+
+    // 2-3) 프로필에 id가 있고, id키가 비었는데 name키가 있으면 id로 복사
+    for (final p in profiles) {
+      if (p is! Map) continue;
+      final id = (p['id'] ?? '').toString().trim();
+      final name = (p['name'] ?? '').toString().trim();
+      if (id.isEmpty || name.isEmpty) continue;
+
+      final idKey = 'growth_$id';
+      final legacyKey = 'growth_$name';
+      final idVal = prefs.getString(idKey);
+      if (idVal == null || idVal.trim().isEmpty) {
+        final legacyVal = prefs.getString(legacyKey);
+        if (legacyVal != null && legacyVal.trim().isNotEmpty) {
+          await prefs.setString(idKey, legacyVal);
+        }
+      }
     }
 
     // 완료 안내

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math';
 
 import 'page_profile_input.dart';
 import 'page_standard_growth_chart.dart';
@@ -14,21 +15,31 @@ import 'common_banner.dart';
 
 
 class ChildProfile {
+  String id; // ✅ 고유 ID
   String name;
   String gender;
   DateTime birthDate;
 
   ChildProfile({
+    required this.id,
     required this.name,
     required this.gender,
     required this.birthDate,
   });
 
   factory ChildProfile.fromJson(Map<String, dynamic> json) => ChildProfile(
+        id: (json['id'] ?? '').toString(),
         name: json['name'],
         gender: json['gender'],
         birthDate: DateTime.parse(json['birthDate']),
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'gender': gender,
+        'birthDate': birthDate.toIso8601String(),
+      };
 }
 
 class MainPage extends StatefulWidget {
@@ -46,6 +57,12 @@ class _MainPageState extends State<MainPage> {
 
   List<ChildProfile> children = [];
 
+  String _newId() {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final r = Random().nextInt(1 << 32);
+    return '${now.toRadixString(16)}_${r.toRadixString(16)}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,23 +75,72 @@ class _MainPageState extends State<MainPage> {
 
     if (jsonString != null) {
       final List<dynamic> jsonList = json.decode(jsonString);
-      setState(() {
-        children = jsonList.map((e) => ChildProfile.fromJson(e)).toList();
-      });
+
+      // ✅ id 없는 레거시 프로필 자동 보정 + growth_{name} -> growth_{id} 자동 마이그레이션
+      bool changed = false;
+      final List<ChildProfile> parsed = [];
+      for (final e in jsonList) {
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e as Map);
+        var id = (m['id'] ?? '').toString().trim();
+        final name = (m['name'] ?? '').toString();
+        if (id.isEmpty) {
+          id = _newId();
+          m['id'] = id;
+          changed = true;
+        }
+
+        // growth_{id}가 없고 growth_{name}가 있으면 복사
+        final idKey = 'growth_$id';
+        final legacyKey = 'growth_$name';
+        final idVal = prefs.getString(idKey);
+        final legacyVal = prefs.getString(legacyKey);
+        if ((idVal == null || idVal.trim().isEmpty) && legacyVal != null && legacyVal.trim().isNotEmpty) {
+          await prefs.setString(idKey, legacyVal);
+        }
+
+        parsed.add(
+          ChildProfile(
+            id: id,
+            name: name,
+            gender: (m['gender'] ?? '남아').toString(),
+            birthDate: DateTime.parse(m['birthDate'].toString()),
+          ),
+        );
+      }
+
+      if (changed) {
+        await prefs.setString(
+          'childProfiles',
+          json.encode(parsed.map((c) => c.toJson()).toList()),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() => children = parsed);
     } else {
       setState(() => children = []);
     }
   }
 
-  void _deleteProfile(String name) async {
+  void _deleteProfile(ChildProfile child) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString('childProfiles');
     if (jsonString == null) return;
 
     List<dynamic> profileList = json.decode(jsonString);
-    profileList.removeWhere((p) => p['name'] == name);
+    profileList.removeWhere((p) {
+      if (p is! Map) return false;
+      final m = Map<String, dynamic>.from(p as Map);
+      return (m['id'] ?? '').toString() == child.id;
+    });
 
     await prefs.setString('childProfiles', json.encode(profileList));
+
+    // ✅ 성장 데이터도 정리 (id키 + 레거시 name키)
+    await prefs.remove('growth_${child.id}');
+    await prefs.remove('growth_${child.name}');
+
     _loadChildren();
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +148,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  void _confirmDeleteProfile(String name) {
+  void _confirmDeleteProfile(ChildProfile child) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -97,7 +163,7 @@ class _MainPageState extends State<MainPage> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
-              _deleteProfile(name);
+              _deleteProfile(child);
             },
             child: const Text('삭제'),
           ),
@@ -145,6 +211,7 @@ class _MainPageState extends State<MainPage> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChildGrowthInput(
+                      childId: child.id,
                       childName: child.name,
                       birthdate: child.birthDate,
                     ),
@@ -161,6 +228,7 @@ class _MainPageState extends State<MainPage> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChildGrowthList(
+                      childId: child.id,
                       childName: child.name,
                       birthdate: child.birthDate,
                     ),
@@ -176,7 +244,11 @@ class _MainPageState extends State<MainPage> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ChildGrowthChart(childName: child.name, isMale: child.gender == '남아'),
+                    builder: (_) => ChildGrowthChart(
+                      childId: child.id,
+                      childName: child.name,
+                      isMale: child.gender == '남아',
+                    ),
                   ),
                 );
               },
@@ -186,7 +258,7 @@ class _MainPageState extends State<MainPage> {
               title: const Text('프로필 삭제'),
               onTap: () {
                 Navigator.pop(context);
-                _confirmDeleteProfile(child.name);
+                _confirmDeleteProfile(child);
               },
             ),
             const SizedBox(height: 6),

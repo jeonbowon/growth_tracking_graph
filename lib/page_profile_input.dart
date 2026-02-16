@@ -2,15 +2,29 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math';
 
 class ChildProfile {
+  String id; // ✅ 고유 ID
   String name;
   String gender; // '남아' or '여아'
   DateTime birthDate;
 
-  ChildProfile({required this.name, required this.gender, required this.birthDate});
+  ChildProfile({
+    required this.id,
+    required this.name,
+    required this.gender,
+    required this.birthDate,
+  });
+
+  static String newId() {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final r = Random().nextInt(1 << 32);
+    return '${now.toRadixString(16)}_${r.toRadixString(16)}';
+  }
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'name': name,
     'gender': gender,
     'birthDate': birthDate.toIso8601String(),
@@ -18,7 +32,9 @@ class ChildProfile {
 
   factory ChildProfile.fromJson(Map<String, dynamic> json) {
     try {
+      final rawId = (json['id'] ?? '').toString().trim();
       return ChildProfile(
+        id: rawId.isNotEmpty ? rawId : newId(),
         name: json['name'],
         gender: json['gender'],
         birthDate: DateTime.parse(json['birthDate']),
@@ -26,6 +42,7 @@ class ChildProfile {
     } catch (e) {
       // 기본값으로 대체하거나 로그 출력
       return ChildProfile(
+        id: newId(),
         name: json['name'] ?? '이름없음',
         gender: json['gender'] ?? '남아',
         birthDate: DateTime(2000, 1, 1), // 잘못된 날짜는 기본값
@@ -46,6 +63,12 @@ class _PageProfileInputState extends State<PageProfileInput> {
   final TextEditingController _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   String _selectedGender = '남아';
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _saveProfile() async {
     final name = _nameController.text.trim();
@@ -69,6 +92,7 @@ class _PageProfileInputState extends State<PageProfileInput> {
       }
 
       profileList.add(ChildProfile(
+        id: ChildProfile.newId(),
         name: name,
         gender: _selectedGender,
         birthDate: _selectedDate,
@@ -82,7 +106,9 @@ class _PageProfileInputState extends State<PageProfileInput> {
         widget.onProfileSaved?.call();
       });
     } catch (e) {
-      print('❌ 저장 중 오류 발생: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('저장 중 오류 발생: $e')));
     }
   }
 

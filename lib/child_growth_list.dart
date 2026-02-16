@@ -37,11 +37,13 @@ class GrowthEntry {
 }
 
 class ChildGrowthList extends StatefulWidget {
+  final String childId;
   final String childName;
   final DateTime birthdate;
 
   const ChildGrowthList({
     Key? key,
+    required this.childId,
     required this.childName,
     required this.birthdate,
   }) : super(key: key);
@@ -86,7 +88,19 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
 
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('growth_${widget.childName}');
+
+    // ✅ 레거시(name 기반) -> id 기반 자동 마이그레이션
+    final idKey = 'growth_${widget.childId}';
+    final legacyKey = 'growth_${widget.childName}';
+    final idVal = prefs.getString(idKey);
+    if (idVal == null || idVal.trim().isEmpty) {
+      final legacyVal = prefs.getString(legacyKey);
+      if (legacyVal != null && legacyVal.trim().isNotEmpty) {
+        await prefs.setString(idKey, legacyVal);
+      }
+    }
+
+    final data = prefs.getString(idKey);
     if (data == null) {
       if (mounted) setState(() => entries = []);
       return;
@@ -99,10 +113,12 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
         return;
       }
 
+      // ✅ raw는 보통 Map<dynamic,dynamic> 이라 whereType<Map<String,dynamic>>()로 걸러지면 전부 날아갑니다.
+      //    "리스트엔 안 뜨는데 그래프엔 뜬다" 원인의 핵심입니다.
       final parsed = raw
-          .whereType<Map<String, dynamic>>()
-          .map((e) => GrowthEntry.fromJson(e))
-          .toList()
+          .whereType<Map>()
+          .map((e) => GrowthEntry.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(growable: false)
         ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
 
       if (mounted) setState(() => entries = parsed);
@@ -119,7 +135,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
   Future<void> _saveEntries() async {
     final prefs = await SharedPreferences.getInstance();
     final list = entries.map((e) => e.toJson()).toList();
-    await prefs.setString('growth_${widget.childName}', json.encode(list));
+    await prefs.setString('growth_${widget.childId}', json.encode(list));
   }
 
   void _confirmDelete(int index) {

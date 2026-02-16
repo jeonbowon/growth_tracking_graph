@@ -74,11 +74,16 @@ extension _ChartKindX on _ChartKind {
 }
 
 class ChildGrowthChart extends StatefulWidget {
+  /// ✅ 이름이 아니라 고유 ID를 기반으로 데이터를 저장/조회합니다.
+  final String childId;
+
   final String childName;
 
   /// 프로필에서 확정된 성별을 전달하세요. true=남아, false=여아
   final bool isMale;
+
   const ChildGrowthChart({
+    required this.childId,
     required this.childName,
     required this.isMale,
     Key? key,
@@ -120,6 +125,10 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   // 아이 데이터 표시
   bool _showChild = true;
 
+  // ✅ 원본 전체(참고/통계용)
+  List<GrowthEntry> _allEntries = [];
+
+  // ✅ 그래프 표시용(월령별 대표값)
   List<GrowthEntry> _entries = [];
   _ChartKind? _selected; // null = preview list
   final TransformationController _tc = TransformationController();
@@ -281,17 +290,67 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     });
   }
 
+
+  // ✅ 레거시(name 기반 key) 데이터를 id 기반 key로 자동 마이그레이션
+  Future<void> _migrateLegacyIfNeeded(SharedPreferences prefs) async {
+    final idKey = 'growth_${widget.childId}';
+    final legacyKey = 'growth_${widget.childName}';
+
+    final idVal = prefs.getString(idKey);
+    if (idVal != null && idVal.trim().isNotEmpty) return;
+
+    final legacyVal = prefs.getString(legacyKey);
+    if (legacyVal != null && legacyVal.trim().isNotEmpty) {
+      await prefs.setString(idKey, legacyVal);
+    }
+  }
+
+  // ✅ 같은 월령(ageMonths)에 여러 번 입력했으면, 그래프는 "가장 최신 날짜" 1개만 사용
+  // - date는 보통 'yyyy-MM-dd' 이므로 문자열 비교로 최신 판단 가능
+  List<GrowthEntry> _aggregateLatestPerMonth(List<GrowthEntry> input) {
+    final Map<int, GrowthEntry> best = {};
+
+    for (final e in input) {
+      final cur = best[e.ageMonths];
+      if (cur == null) {
+        best[e.ageMonths] = e;
+        continue;
+      }
+
+      final a = e.date.trim();
+      final b = cur.date.trim();
+      if (a.isEmpty) continue;
+      if (b.isEmpty || a.compareTo(b) > 0) {
+        best[e.ageMonths] = e;
+      }
+    }
+
+    final out = best.values.toList()
+      ..sort((x, y) => x.ageMonths.compareTo(y.ageMonths));
+    return out;
+  }
+
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('growth_${widget.childName}');
+
+    // ✅ 레거시(name키) -> id키 자동 마이그레이션
+    await _migrateLegacyIfNeeded(prefs);
+
+    final data = prefs.getString('growth_${widget.childId}');
     if (data == null || data.trim().isEmpty) {
-      setState(() => _entries = []);
+      setState(() {
+        _allEntries = [];
+        _entries = [];
+      });
       return;
     }
 
     final decoded = json.decode(data);
     if (decoded is! List) {
-      setState(() => _entries = []);
+      setState(() {
+        _allEntries = [];
+        _entries = [];
+      });
       return;
     }
 
@@ -300,7 +359,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         .toList()
       ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
 
-    setState(() => _entries = parsed);
+    // ✅ 그래프는 월령별 대표값(최신 날짜)만 표시
+    final aggregated = _aggregateLatestPerMonth(parsed);
+
+    setState(() {
+      _allEntries = parsed;
+      _entries = aggregated;
+    });
   }
 
   Future<void> _loadStandard() async {
