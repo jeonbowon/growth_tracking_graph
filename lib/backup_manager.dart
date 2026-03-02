@@ -19,8 +19,14 @@ class BackupManager {
 
   /// 백업 파일(JSON)을 생성하고 "공유하기"로 내보냅니다.
   /// ✅ 인코딩 문제 방지를 위해 "바이트(UTF-8)"로 저장합니다.
+  ///
+  /// [광고 정책/UX]
+  /// - 광고는 "선택형" 입니다.
+  /// - AdService.gateWithRewardedAd() 내부에서 BottomSheet를 띄우고,
+  ///   - 취소: 광고 없이 진행(true)
+  ///   - 광고보고진행: 광고 시청 시도(스킵 등으로 보상 미획득이면 false)
   static Future<void> exportBackup(BuildContext context) async {
-    // ✅ 내보내기 시작 전에 보상광고 1회
+    // ✅ 선택형 게이트: 취소해도 진행, 광고보기 선택 시에만 광고 시도
     final ok = await AdService.instance.gateWithRewardedAd(context);
     if (!ok) return;
 
@@ -39,6 +45,7 @@ class BackupManager {
     // ✅ 호환: name 기반도 같이 담아서, 구버전 앱에서도 복원 가능
     final growthById = <String, dynamic>{};
     final growthByName = <String, dynamic>{};
+
     for (final p in profiles) {
       if (p is! Map) continue;
 
@@ -56,7 +63,8 @@ class BackupManager {
           // id 데이터가 비어있으면 name 데이터(레거시)를 참고
           final legacyKey = 'growth_$name';
           final vLegacy = prefs.getString(legacyKey);
-          growthById[id] = (vLegacy != null && vLegacy.trim().isNotEmpty) ? vLegacy : '[]';
+          growthById[id] =
+              (vLegacy != null && vLegacy.trim().isNotEmpty) ? vLegacy : '[]';
         }
       }
 
@@ -70,7 +78,8 @@ class BackupManager {
           // name 쪽이 비어있으면 id 쪽을 참고
           final idKey = 'growth_$id';
           final vId = prefs.getString(idKey);
-          growthByName[name] = (vId != null && vId.trim().isNotEmpty) ? vId : '[]';
+          growthByName[name] =
+              (vId != null && vId.trim().isNotEmpty) ? vId : '[]';
         }
       }
     }
@@ -103,8 +112,13 @@ class BackupManager {
   /// JSON 백업 파일을 선택하여 SharedPreferences로 복원합니다.
   /// - 덮어쓰기 방식(기존 childProfiles/growth_* 를 백업 파일 기준으로 설정)
   /// ✅ 인코딩 문제 방지를 위해 "바이트 → UTF-8 decode"로 읽습니다.
+  ///
+  /// [광고 정책/UX]
+  /// - 광고는 "선택형" 입니다.
+  /// - 취소: 광고 없이 진행(true)
+  /// - 광고보고진행: 광고 시청 시도(스킵 등으로 보상 미획득이면 false)
   static Future<void> importBackup(BuildContext context) async {
-    // ✅ 가져오기 시작 전에 보상광고 1회
+    // ✅ 선택형 게이트: 취소해도 진행, 광고보기 선택 시에만 광고 시도
     final ok = await AdService.instance.gateWithRewardedAd(context);
     if (!ok) return;
 
