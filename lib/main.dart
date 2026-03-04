@@ -15,8 +15,11 @@ Future<void> main() async {
   // 앱 전역 공통 배너 1회 로드
   AdService.instance.loadBanner();
 
-  // 보상형 광고도 미리 로드(내보내기/가져오기 시 첫 로딩 지연 최소화)
+  // 보상형 광고(선택형 '응원하기') 미리 로드
   AdService.instance.preloadRewarded();
+
+  // 전면 광고도 미리 로드(저장/백업 완료 후 자연스러운 노출)
+  AdService.instance.preloadInterstitial();
 
   runApp(GrowthApp());
 }

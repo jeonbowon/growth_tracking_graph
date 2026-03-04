@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'ad_service.dart';
 
 class GrowthEntry {
   final double? height; // cm
@@ -178,6 +179,11 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
 
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('저장되었습니다')));
+
+    // 저장 완료 후 전면 광고(쿨다운 적용)
+    await AdService.instance.tryShowInterstitialAfterAction(context);
+
+    if (!mounted) return;
     Navigator.pop(context);
   }
 

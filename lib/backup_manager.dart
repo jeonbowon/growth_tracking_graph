@@ -22,13 +22,8 @@ class BackupManager {
   ///
   /// [광고 정책/UX]
   /// - 광고는 "선택형" 입니다.
-  /// - AdService.gateWithRewardedAd() 내부에서 BottomSheet를 띄우고,
-  ///   - 취소: 광고 없이 진행(true)
-  ///   - 광고보고진행: 광고 시청 시도(스킵 등으로 보상 미획득이면 false)
+  /// - 백업/복원 기능은 광고와 무관하게 항상 동작합니다.
   static Future<void> exportBackup(BuildContext context) async {
-    // ✅ 선택형 게이트: 취소해도 진행, 광고보기 선택 시에만 광고 시도
-    final ok = await AdService.instance.gateWithRewardedAd(context);
-    if (!ok) return;
 
     final prefs = await SharedPreferences.getInstance();
 
@@ -107,6 +102,15 @@ class BackupManager {
       subject: '우리아이 성장 그래프 백업 ($fileName)',
       text: '백업 파일입니다. Drive/다운로드 등에 저장해 두세요.',
     );
+
+    // ✅ 작업 완료 후 전면 광고(쿨다운 적용)
+    await AdService.instance.tryShowInterstitialAfterAction(context);
+
+    // ✅ 기능과 무관한 선택형 "응원하기" 안내(정책 안전)
+    AdService.instance.showSnackBarWithSupport(
+      context,
+      message: '백업이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
+    );
   }
 
   /// JSON 백업 파일을 선택하여 SharedPreferences로 복원합니다.
@@ -114,13 +118,8 @@ class BackupManager {
   /// ✅ 인코딩 문제 방지를 위해 "바이트 → UTF-8 decode"로 읽습니다.
   ///
   /// [광고 정책/UX]
-  /// - 광고는 "선택형" 입니다.
-  /// - 취소: 광고 없이 진행(true)
-  /// - 광고보고진행: 광고 시청 시도(스킵 등으로 보상 미획득이면 false)
+  /// - 백업/복원 기능은 광고와 무관하게 항상 동작합니다.
   static Future<void> importBackup(BuildContext context) async {
-    // ✅ 선택형 게이트: 취소해도 진행, 광고보기 선택 시에만 광고 시도
-    final ok = await AdService.instance.gateWithRewardedAd(context);
-    if (!ok) return;
 
     final XFile? file = await openFile(
       acceptedTypeGroups: const [
@@ -209,7 +208,16 @@ class BackupManager {
     // 완료 안내
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('백업 파일을 불러왔습니다.')),
+        const SnackBar(content: Text('복원이 완료되었습니다.')),
+      );
+
+      // ✅ 작업 완료 후 전면 광고(쿨다운 적용)
+      await AdService.instance.tryShowInterstitialAfterAction(context);
+
+      // ✅ 기능과 무관한 선택형 "응원하기" 안내(정책 안전)
+      AdService.instance.showSnackBarWithSupport(
+        context,
+        message: '복원이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
       );
     }
   }

@@ -23,6 +23,13 @@ class AdService {
 
   RewardedAd? _rewardedAd;
   bool _isRewardedLoading = false;
+  // 전면(Interstitial) 광고
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialLoading = false;
+
+  // 전면광고 과다 노출 방지(쿨다운)
+  DateTime? _lastInterstitialShownAt;
+  static const Duration _interstitialCooldown = Duration(seconds: 60);
 
   bool get isBannerLoaded => _isBannerLoaded;
   BannerAd? get bannerAd => _bannerAd;
@@ -31,6 +38,15 @@ class AdService {
   String get rewardedAdUnitId {
     if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/3741070192';
     if (Platform.isIOS) return 'ca-app-pub-3940256099942544/1712485313';
+    return '';
+  }
+
+  /// 전면(Interstitial) 광고 단위 ID
+  /// ⚠️ Android는 AdMob에서 '전면 광고' 단위 생성 후, 아래 값으로 교체하세요.
+  /// - 값이 비어 있으면 전면 광고는 표시되지 않습니다.
+  String get interstitialAdUnitId {
+    if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/9072247918'; // 전면광고(Interstitial)
+    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/4411468910'; // iOS 테스트 ID
     return '';
   }
 
@@ -115,6 +131,11 @@ class AdService {
     _loadRewardedIfNeeded();
   }
 
+  /// 전면 광고도 미리 로드해두면 표시가 부드럽습니다.
+  void preloadInterstitial() {
+    _loadInterstitialIfNeeded();
+  }
+
   Future<void> _loadRewardedIfNeeded() async {
     if (_rewardedAd != null) return;
     if (_isRewardedLoading) return;
@@ -144,121 +165,76 @@ class AdService {
     }
   }
 
-  /// 보상광고 1회 시청을 '선택형 게이트'로 사용합니다.
-  /// - BottomSheet로 선택권 제공
-  ///   - 취소: 광고 없이 진행(true)
-  ///   - 광고보고진행: 광고 시청 시도
-  /// - 광고가 없거나 로드 실패면: 막지 않고 진행(true)
-  /// - 광고를 보기로 선택했는데 스킵 등으로 보상 미획득이면: 차단(false)
-  Future<bool> gateWithRewardedAd(BuildContext context) async {
-    // 1) BottomSheet 선택 팝업
-    final bool? wantToWatch = await showModalBottomSheet<bool>(
-      context: context,
-      isDismissible: false, // ✅ 바깥 터치로 닫히지 않음
-      enableDrag: false, // ✅ 아래로 스와이프 닫기 금지
-      showDragHandle: false,
-      builder: (ctx) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '안내',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  '짧은 광고 1회 시청으로 개발을 응원해 주세요.',
-                  style: TextStyle(fontSize: 15),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('다음에 할게요'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('광고보고 진행'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  /// 작업 완료 후 표시되는 '응원하기(선택)' 스낵바
+  /// - 기능과 광고를 분리해 정책 리스크(클릭 유도)를 피합니다.
+  void showSnackBarWithSupport(
+    BuildContext context, {
+    String message = '작업이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
+    String actionLabel = '응원하기',
+  }) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: actionLabel,
+          onPressed: () {
+            showSupportRewardedAd(context);
+          },
+        ),
+        duration: const Duration(seconds: 4),
+      ),
     );
+  }
 
-    // 취소 => 광고 없이 진행
-    if (wantToWatch != true) return true;
-
-    // 2) 광고를 보기로 한 경우에만 로드/표시 시도
+  /// '응원하기' 선택 시 보상광고를 표시합니다.
+  /// 보상(Reward)을 앱 기능과 연결하지 않습니다(정책 안전).
+  Future<void> showSupportRewardedAd(BuildContext context) async {
     await _loadRewardedIfNeeded();
-
     final ad = _rewardedAd;
+
     if (ad == null) {
-      // 광고가 없거나 로드 실패면 UX 상 막지 않고 진행
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 표시할 광고가 없어 바로 진행합니다.')),
-        );
-      }
-      return true;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('지금은 표시할 수 있는 광고가 없습니다. 잠시 후 다시 시도해 주세요.')),
+      );
+      return;
     }
 
-    bool earned = false;
-    final completer = Completer<bool>();
+    final completer = Completer<void>();
 
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         _rewardedAd = null;
-        _loadRewardedIfNeeded(); // 다음을 위해 프리로드
-        if (!completer.isCompleted) completer.complete(earned);
+        _loadRewardedIfNeeded();
+        if (!completer.isCompleted) completer.complete();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
         _rewardedAd = null;
         _loadRewardedIfNeeded();
-        if (!completer.isCompleted) completer.complete(true); // 실패면 막지 않음
+        if (!completer.isCompleted) completer.complete();
       },
     );
 
     try {
       ad.show(
         onUserEarnedReward: (ad, reward) {
-          earned = true;
+          // 응원용: 보상을 기능에 연결하지 않음
         },
       );
+      await completer.future;
     } catch (_) {
       try {
         ad.dispose();
       } catch (_) {}
       _rewardedAd = null;
       _loadRewardedIfNeeded();
-      return true;
     }
-
-    final ok = await completer.future;
-
-    // 사용자가 "광고보고진행"을 눌렀는데 스킵해서 보상이 없으면, 그때만 막는다.
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('보상광고 시청 후 진행할 수 있습니다.')),
-      );
-    }
-    return ok;
   }
 
   void dispose() {
@@ -275,4 +251,93 @@ class AdService {
     _rewardedAd = null;
     _isRewardedLoading = false;
   }
+
+  Future<void> _loadInterstitialIfNeeded() async {
+    if (_interstitialAd != null) return;
+    if (_isInterstitialLoading) return;
+
+    final unitId = interstitialAdUnitId;
+    if (unitId.isEmpty) return;
+
+    _isInterstitialLoading = true;
+    try {
+      await InterstitialAd.load(
+        adUnitId: unitId,
+        request: const AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (ad) {
+            _interstitialAd = ad;
+            _isInterstitialLoading = false;
+
+            ad.fullScreenContentCallback = FullScreenContentCallback(
+              onAdDismissedFullScreenContent: (ad) {
+                ad.dispose();
+                _interstitialAd = null;
+                _loadInterstitialIfNeeded();
+              },
+              onAdFailedToShowFullScreenContent: (ad, error) {
+                ad.dispose();
+                _interstitialAd = null;
+                _loadInterstitialIfNeeded();
+              },
+            );
+          },
+          onAdFailedToLoad: (error) {
+            _interstitialAd = null;
+            _isInterstitialLoading = false;
+          },
+        ),
+      );
+    } catch (_) {
+      _interstitialAd = null;
+      _isInterstitialLoading = false;
+    }
+  }
+
+  bool _canShowInterstitialNow() {
+    final last = _lastInterstitialShownAt;
+    if (last == null) return true;
+    return DateTime.now().difference(last) >= _interstitialCooldown;
+  }
+
+  /// 작업 완료 후 자연스럽게 전면 광고를 시도합니다.
+  /// - 쿨다운(기본 60초) 안이면 표시하지 않습니다.
+  /// - 광고 로드/표시 실패해도 앱 흐름을 막지 않습니다.
+  Future<void> tryShowInterstitialAfterAction(BuildContext context) async {
+    if (!_canShowInterstitialNow()) return;
+
+    await _loadInterstitialIfNeeded();
+    final ad = _interstitialAd;
+    if (ad == null) return;
+
+    final completer = Completer<void>();
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _interstitialAd = null;
+        _lastInterstitialShownAt = DateTime.now();
+        _loadInterstitialIfNeeded();
+        if (!completer.isCompleted) completer.complete();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        _interstitialAd = null;
+        _lastInterstitialShownAt = DateTime.now();
+        _loadInterstitialIfNeeded();
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+
+    try {
+      ad.show();
+      await completer.future;
+    } catch (_) {
+      try { ad.dispose(); } catch (_) {}
+      _interstitialAd = null;
+      _lastInterstitialShownAt = DateTime.now();
+      _loadInterstitialIfNeeded();
+    }
+  }
+
 }

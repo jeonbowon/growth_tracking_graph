@@ -10,16 +10,19 @@ plugins {
 
 // ─────────────────────────────────────────────────────────────
 // Release 서명 키(업로드 키) 설정 로드
-// android/key.properties 파일을 읽습니다.
+// root의 key.properties 파일을 읽습니다.
 // 예)
 // storePassword=******
 // keyPassword=******
 // keyAlias=upload
 // storeFile=app/upload-keystore.jks
 // ─────────────────────────────────────────────────────────────
-val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val keystoreProperties = Properties()
+
+val hasKeystore: Boolean = keystorePropertiesFile.exists()
+
+if (hasKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -38,21 +41,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.tnbsoft.growth_tracking_graph"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
-    // ✅ release 서명 설정 추가
+    // ✅ release 서명 설정 (key.properties가 있을 때만)
     signingConfigs {
-        // key.properties가 없으면 release 빌드에서 실패하므로,
-        // 파일이 있을 때만 release 설정을 구성합니다.
-        if (keystorePropertiesFile.exists()) {
+        if (hasKeystore) {
             create("release") {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
@@ -60,22 +58,30 @@ android {
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
+        // debug는 기본 debug keystore를 사용하므로 별도 설정 불필요
     }
 
     buildTypes {
-        release {
-            // ✅ Play Console 업로드용: 반드시 release 키로 서명
-            if (keystorePropertiesFile.exists()) {
+        getByName("debug") {
+            // ✅ 디버그 실행은 key.properties가 없어도 무조건 가능해야 합니다.
+            // (서명 설정을 건드리지 않습니다.)
+        }
+
+        getByName("release") {
+            // ✅ key.properties가 있을 때만 release 키로 서명
+            if (hasKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
-                // key.properties가 없으면 debug 서명으로 되돌리지 말고,
-                // 문제를 바로 알 수 있게 예외를 터뜨립니다.
-                throw GradleException("android/key.properties 파일이 없습니다. release 서명을 위해 key.properties를 생성하세요.")
+                // ❗여기서 throw 하면, 환경/빌드 캐시/플러그인 동작에 따라
+                // 디버그 빌드까지 영향을 주는 경우가 생길 수 있어 안전하지 않습니다.
+                // Play 업로드용 릴리스 빌드는 key.properties를 준비한 뒤 진행하세요.
+                // (release 서명 없이는 Play 업로드가 불가)
             }
 
-            // Flutter 기본값 유지(원하면 추후 proguard/minify 설정)
+            // 필요시 추후 설정
             // isMinifyEnabled = false
             // isShrinkResources = false
+            // proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
