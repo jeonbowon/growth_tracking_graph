@@ -106,11 +106,14 @@ class BackupManager {
     // ✅ 작업 완료 후 전면 광고(쿨다운 적용)
     await AdService.instance.tryShowInterstitialAfterAction(context);
 
-    // ✅ 기능과 무관한 선택형 "응원하기" 안내(정책 안전)
-    AdService.instance.showSnackBarWithSupport(
-      context,
-      message: '백업이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
-    );
+    // ⚠️ (정책 이슈 대응) 보상형 광고로 연결될 수 있는 "응원하기" 스낵바는 일단 제거합니다.
+    // 아래 스낵바는 사용자가 '응원하기'를 누르면 RewardedAd(보상형)로 이어질 수 있어
+    // AdMob이 "클릭 유도"로 해석할 여지가 있습니다.
+    //
+    // AdService.instance.showSnackBarWithSupport(
+    //   context,
+    //   message: '백업이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
+    // );
   }
 
   /// JSON 백업 파일을 선택하여 SharedPreferences로 복원합니다.
@@ -214,11 +217,12 @@ class BackupManager {
       // ✅ 작업 완료 후 전면 광고(쿨다운 적용)
       await AdService.instance.tryShowInterstitialAfterAction(context);
 
-      // ✅ 기능과 무관한 선택형 "응원하기" 안내(정책 안전)
-      AdService.instance.showSnackBarWithSupport(
-        context,
-        message: '복원이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
-      );
+      // ⚠️ (정책 이슈 대응) 보상형 광고로 연결될 수 있는 "응원하기" 스낵바는 일단 제거합니다.
+      //
+      // AdService.instance.showSnackBarWithSupport(
+      //   context,
+      //   message: '복원이 완료되었습니다. 도움이 되셨다면 “응원하기”로 개발을 지원할 수 있어요. (선택)',
+      // );
     }
   }
 
