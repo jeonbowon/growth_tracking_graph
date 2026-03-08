@@ -12,6 +12,7 @@ import 'child_growth_list.dart';
 import 'child_growth_chart.dart';
 import 'backup_manager.dart';
 import 'common_banner.dart';
+import 'ad_service.dart';
 
 
 class ChildProfile {
@@ -224,6 +225,8 @@ class _MainPageState extends State<MainPage> {
               title: const Text('데이터 보기 및 수정'),
               onTap: () async {
                 Navigator.pop(context);
+                await AdService.instance.tryShowInterstitialOnNaturalTransition();
+                if (!mounted) return;
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -241,6 +244,8 @@ class _MainPageState extends State<MainPage> {
               title: const Text('그래프 보기'),
               onTap: () async {
                 Navigator.pop(context);
+                await AdService.instance.tryShowInterstitialOnNaturalTransition();
+                if (!mounted) return;
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -466,10 +471,12 @@ class _MainPageState extends State<MainPage> {
           _menuButton(
             icon: Icons.stacked_line_chart,
             label: '표준도표',
-            onTap: () {
+            onTap: () async {
+              await AdService.instance.tryShowInterstitialOnNaturalTransition();
+              if (!mounted) return;
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => PageStandardGrowthChart()),
+                MaterialPageRoute(builder: (_) => const PageStandardGrowthChart()),
               );
             },
           ),
