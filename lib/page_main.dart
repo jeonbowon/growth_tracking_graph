@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'dart:math';
 
+import 'child_profile.dart';
+import 'app_colors.dart';
 import 'page_profile_input.dart';
 import 'page_standard_growth_chart.dart';
 import 'page_app_explanation.dart';
@@ -14,55 +15,14 @@ import 'backup_manager.dart';
 import 'common_banner.dart';
 import 'ad_service.dart';
 
-
-class ChildProfile {
-  String id; // ✅ 고유 ID
-  String name;
-  String gender;
-  DateTime birthDate;
-
-  ChildProfile({
-    required this.id,
-    required this.name,
-    required this.gender,
-    required this.birthDate,
-  });
-
-  factory ChildProfile.fromJson(Map<String, dynamic> json) => ChildProfile(
-        id: (json['id'] ?? '').toString(),
-        name: json['name'],
-        gender: json['gender'],
-        birthDate: DateTime.parse(json['birthDate']),
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'gender': gender,
-        'birthDate': birthDate.toIso8601String(),
-      };
-}
-
 class MainPage extends StatefulWidget {
   @override
   _MainPageState createState() => _MainPageState();
 }
 
 class _MainPageState extends State<MainPage> {
-  // 고급 보라 팔레트 (메인 화면 전용)
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _appBar = Color(0xFF2D1E4A);
-  static const Color _bottomBar = Color(0xFF1E1633);
-  static const Color _buttonBg = Color(0xFF2D1E4A);
-  static const Color _bg = Color(0xFFF6F3FF);
 
   List<ChildProfile> children = [];
-
-  String _newId() {
-    final now = DateTime.now().microsecondsSinceEpoch;
-    final r = Random().nextInt(1 << 32);
-    return '${now.toRadixString(16)}_${r.toRadixString(16)}';
-  }
 
   @override
   void initState() {
@@ -74,54 +34,42 @@ class _MainPageState extends State<MainPage> {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString('childProfiles');
 
-    if (jsonString != null) {
-      final List<dynamic> jsonList = json.decode(jsonString);
-
-      // ✅ id 없는 레거시 프로필 자동 보정 + growth_{name} -> growth_{id} 자동 마이그레이션
-      bool changed = false;
-      final List<ChildProfile> parsed = [];
-      for (final e in jsonList) {
-        if (e is! Map) continue;
-        final m = Map<String, dynamic>.from(e as Map);
-        var id = (m['id'] ?? '').toString().trim();
-        final name = (m['name'] ?? '').toString();
-        if (id.isEmpty) {
-          id = _newId();
-          m['id'] = id;
-          changed = true;
-        }
-
-        // growth_{id}가 없고 growth_{name}가 있으면 복사
-        final idKey = 'growth_$id';
-        final legacyKey = 'growth_$name';
-        final idVal = prefs.getString(idKey);
-        final legacyVal = prefs.getString(legacyKey);
-        if ((idVal == null || idVal.trim().isEmpty) && legacyVal != null && legacyVal.trim().isNotEmpty) {
-          await prefs.setString(idKey, legacyVal);
-        }
-
-        parsed.add(
-          ChildProfile(
-            id: id,
-            name: name,
-            gender: (m['gender'] ?? '남아').toString(),
-            birthDate: DateTime.parse(m['birthDate'].toString()),
-          ),
-        );
-      }
-
-      if (changed) {
-        await prefs.setString(
-          'childProfiles',
-          json.encode(parsed.map((c) => c.toJson()).toList()),
-        );
-      }
-
-      if (!mounted) return;
-      setState(() => children = parsed);
-    } else {
+    if (jsonString == null) {
       setState(() => children = []);
+      return;
     }
+
+    final List<dynamic> jsonList = json.decode(jsonString);
+    bool changed = false;
+    final List<ChildProfile> parsed = [];
+
+    for (final e in jsonList) {
+      if (e is! Map) continue;
+      final m = Map<String, dynamic>.from(e);
+
+      // id 없는 레거시 프로필 자동 보정
+      if ((m['id'] ?? '').toString().trim().isEmpty) {
+        m['id'] = ChildProfile.newId();
+        changed = true;
+      }
+
+      final profile = ChildProfile.fromJson(m);
+
+      // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
+      await ChildProfile.migrateLegacyGrowthKey(prefs, profile.id, profile.name);
+
+      parsed.add(profile);
+    }
+
+    if (changed) {
+      await prefs.setString(
+        'childProfiles',
+        json.encode(parsed.map((c) => c.toJson()).toList()),
+      );
+    }
+
+    if (!mounted) return;
+    setState(() => children = parsed);
   }
 
   void _deleteProfile(ChildProfile child) async {
@@ -132,7 +80,7 @@ class _MainPageState extends State<MainPage> {
     List<dynamic> profileList = json.decode(jsonString);
     profileList.removeWhere((p) {
       if (p is! Map) return false;
-      final m = Map<String, dynamic>.from(p as Map);
+      final m = Map<String, dynamic>.from(p);
       return (m['id'] ?? '').toString() == child.id;
     });
 
@@ -204,7 +152,7 @@ class _MainPageState extends State<MainPage> {
             ),
             const SizedBox(height: 10),
             ListTile(
-              leading: const Icon(Icons.add, color: _accent),
+              leading: const Icon(Icons.add, color: AppColors.accent),
               title: const Text('성장 데이터 입력'),
               onTap: () async {
                 Navigator.pop(context);
@@ -221,7 +169,7 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit, color: _accent),
+              leading: const Icon(Icons.edit, color: AppColors.accent),
               title: const Text('데이터 보기 및 수정'),
               onTap: () async {
                 Navigator.pop(context);
@@ -240,7 +188,7 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.show_chart, color: _accent),
+              leading: const Icon(Icons.show_chart, color: AppColors.accent),
               title: const Text('그래프 보기'),
               onTap: () async {
                 Navigator.pop(context);
@@ -277,7 +225,7 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       bottomNavigationBar: const CommonBanner(),
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: const Text('우리아이 성장 그래프'),
         actions: [
@@ -308,7 +256,7 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
 
-        backgroundColor: _appBar,
+        backgroundColor: AppColors.appBar,
         foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
@@ -370,7 +318,7 @@ class _MainPageState extends State<MainPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _accent.withOpacity(0.10)),
+              border: Border.all(color: AppColors.accent.withOpacity(0.10)),
               boxShadow: const [
                 BoxShadow(
                   color: Colors.black12,
@@ -385,10 +333,10 @@ class _MainPageState extends State<MainPage> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.12),
+                    color: AppColors.accent.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.child_care, color: _accent),
+                  child: const Icon(Icons.child_care, color: AppColors.accent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -410,7 +358,7 @@ class _MainPageState extends State<MainPage> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, size: 16, color: _accent),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.accent),
               ],
             ),
           ),
@@ -425,7 +373,7 @@ class _MainPageState extends State<MainPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _accent.withOpacity(0.10)),
+        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -451,7 +399,7 @@ class _MainPageState extends State<MainPage> {
       height: 86,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: _bottomBar,
+        color: AppColors.bottomBar,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.22),
@@ -507,7 +455,7 @@ class _MainPageState extends State<MainPage> {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            color: _buttonBg,
+            color: AppColors.appBar,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withOpacity(0.08)),
           ),

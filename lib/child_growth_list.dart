@@ -3,38 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-// 성장 데이터 모델 (입력 화면과 동일 스키마: height/weight/bmi는 nullable)
-class GrowthEntry {
-  final double? height; // cm
-  final double? weight; // kg
-  final double? bmi; // kg/m^2
-  final int ageMonths;
-  final String date; // yyyy-MM-dd
-
-  GrowthEntry({
-    required this.height,
-    required this.weight,
-    required this.bmi,
-    required this.ageMonths,
-    required this.date,
-  });
-
-  factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        height: (json['height'] as num?)?.toDouble(),
-        weight: (json['weight'] as num?)?.toDouble(),
-        bmi: (json['bmi'] as num?)?.toDouble(),
-        ageMonths: (json['ageMonths'] as num).toInt(),
-        date: json['date'] as String,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'height': height,
-        'weight': weight,
-        'bmi': bmi,
-        'ageMonths': ageMonths,
-        'date': date,
-      };
-}
+import 'growth_entry.dart';
+import 'child_profile.dart';
+import 'app_colors.dart';
 
 class ChildGrowthList extends StatefulWidget {
   final String childId;
@@ -54,8 +25,8 @@ class ChildGrowthList extends StatefulWidget {
 
 class _ChildGrowthListState extends State<ChildGrowthList> {
   // 고급 보라 톤
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _bg = Color(0xFFF6F3FF);
+  
+  
 
   List<GrowthEntry> entries = [];
 
@@ -89,18 +60,10 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ 레거시(name 기반) -> id 기반 자동 마이그레이션
-    final idKey = 'growth_${widget.childId}';
-    final legacyKey = 'growth_${widget.childName}';
-    final idVal = prefs.getString(idKey);
-    if (idVal == null || idVal.trim().isEmpty) {
-      final legacyVal = prefs.getString(legacyKey);
-      if (legacyVal != null && legacyVal.trim().isNotEmpty) {
-        await prefs.setString(idKey, legacyVal);
-      }
-    }
+    // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
+    await ChildProfile.migrateLegacyGrowthKey(prefs, widget.childId, widget.childName);
 
-    final data = prefs.getString(idKey);
+    final data = prefs.getString('growth_${widget.childId}');
     if (data == null) {
       if (mounted) setState(() => entries = []);
       return;
@@ -117,7 +80,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       //    "리스트엔 안 뜨는데 그래프엔 뜬다" 원인의 핵심입니다.
       final parsed = raw
           .whereType<Map>()
-          .map((e) => GrowthEntry.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) => GrowthEntry.fromJson(Map<String, dynamic>.from(e)))
           .toList(growable: false)
         ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
 
@@ -170,7 +133,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     );
   }
 
-  void _editEntryDialog(int index) {
+  Future<void> _editEntryDialog(int index) async {
     final e = entries[index];
 
     final heightController = TextEditingController(text: e.height?.toString() ?? '');
@@ -178,7 +141,8 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     final bmiController = TextEditingController(text: e.bmi?.toString() ?? '');
     final ageController = TextEditingController(text: e.ageMonths.toString());
 
-    showDialog(
+    try {
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('기록 수정'),
@@ -225,7 +189,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
             child: const Text('취소'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _accent),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
             onPressed: () async {
               final newAge = int.tryParse(ageController.text.trim()) ?? e.ageMonths;
               final newH = _parsePositiveDoubleAllowNull(heightController.text);
@@ -269,12 +233,18 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
         ],
       ),
     );
+    } finally {
+      heightController.dispose();
+      weightController.dispose();
+      bmiController.dispose();
+      ageController.dispose();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text('${widget.childName} 성장 기록'),
         actions: [
@@ -313,7 +283,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: _accent.withOpacity(0.10)),
+                        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black12,
@@ -328,10 +298,10 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: _accent.withOpacity(0.12),
+                              color: AppColors.accent.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.event_note, color: _accent),
+                            child: const Icon(Icons.event_note, color: AppColors.accent),
                           ),
                           const SizedBox(width: 12),
                           Expanded(

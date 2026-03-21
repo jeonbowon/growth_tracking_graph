@@ -119,28 +119,27 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
   }
 
   ({double minX, double maxX, double minY, double maxY}) _bounds(Map<int, List<FlSpot>> series) {
-    double? minX, maxX, minY, maxY;
+    double minX = 0, maxX = 228, minY = 0, maxY = 100;
+    bool hasData = false;
 
     for (final entry in series.entries) {
       if (_visible[entry.key] != true) continue;
       for (final s in entry.value) {
-        minX = minX == null ? s.x : (s.x < minX! ? s.x : minX);
-        maxX = maxX == null ? s.x : (s.x > maxX! ? s.x : maxX);
-        minY = minY == null ? s.y : (s.y < minY! ? s.y : minY);
-        maxY = maxY == null ? s.y : (s.y > maxY! ? s.y : maxY);
+        if (!hasData) {
+          minX = maxX = s.x;
+          minY = maxY = s.y;
+          hasData = true;
+        } else {
+          if (s.x < minX) minX = s.x;
+          if (s.x > maxX) maxX = s.x;
+          if (s.y < minY) minY = s.y;
+          if (s.y > maxY) maxY = s.y;
+        }
       }
     }
 
-    // 전부 꺼졌거나 비었을 때
-    if (minX == null) {
-      minX = 0;
-      maxX = 228;
-      minY = 0;
-      maxY = 100;
-    }
-
-    final yPad = ((maxY! - minY!).abs() * 0.08).clamp(0.5, 12.0);
-    return (minX: minX!, maxX: maxX!, minY: minY! - yPad, maxY: maxY! + yPad);
+    final yPad = ((maxY - minY).abs() * 0.08).clamp(0.5, 12.0);
+    return (minX: minX, maxX: maxX, minY: minY - yPad, maxY: maxY + yPad);
   }
 
   List<LineChartBarData> _lines(Map<int, List<FlSpot>> series) {

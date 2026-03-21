@@ -5,6 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'page_main.dart';
 import 'ad_service.dart';
+import 'app_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,22 +23,18 @@ Future<void> main() async {
 }
 
 class GrowthApp extends StatelessWidget {
-  static const Color _seed = Color(0xFF7C5CFF);
-  static const Color _appBar = Color(0xFF2D1E4A);
-  static const Color _bg = Color(0xFFF6F3FF);
-
   @override
   Widget build(BuildContext context) {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: _seed,
+        seedColor: AppColors.accent,
         brightness: Brightness.light,
       ),
-      scaffoldBackgroundColor: _bg,
+      scaffoldBackgroundColor: AppColors.bg,
       textTheme: GoogleFonts.notoSansKrTextTheme(Theme.of(context).textTheme),
       appBarTheme: const AppBarTheme(
-        backgroundColor: _appBar,
+        backgroundColor: AppColors.appBar,
         foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,

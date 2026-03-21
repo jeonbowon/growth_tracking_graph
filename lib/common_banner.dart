@@ -36,7 +36,7 @@ class _CommonBannerState extends State<CommonBanner> {
           child: Container(
             alignment: Alignment.center,
             width: double.infinity,
-            height: ad!.size.height.toDouble(),
+            height: ad.size.height.toDouble(),
             child: AdWidget(ad: ad),
           ),
         );

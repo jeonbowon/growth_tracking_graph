@@ -9,47 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'dart:math' as math;
 
-class GrowthEntry {
-  /// 사용자가 해당 날짜에 입력하지 않았을 수 있으므로 nullable
-  final double? heightCm;
-  final double? weightKg;
-
-  /// 저장된 BMI(있을 수도, 없을 수도)
-  final double? bmiValue;
-
-  final int ageMonths;
-  final String date;
-
-  const GrowthEntry({
-    required this.heightCm,
-    required this.weightKg,
-    required this.bmiValue,
-    required this.ageMonths,
-    required this.date,
-  });
-
-  /// BMI는 키+몸무게가 모두 있을 때만 의미가 있습니다.
-  /// 1) 저장된 bmiValue가 있으면 우선 사용
-  /// 2) 없으면 키/몸무게로 계산
-  /// 3) 둘 중 하나라도 없으면 null
-  double? get bmi {
-    if (bmiValue != null && bmiValue! > 0) return bmiValue;
-    final h = heightCm;
-    final w = weightKg;
-    if (h == null || w == null) return null;
-    final m = h / 100.0;
-    if (m <= 0) return null;
-    return w / (m * m);
-  }
-
-  factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        heightCm: (json['height'] as num?)?.toDouble(),
-        weightKg: (json['weight'] as num?)?.toDouble(),
-        bmiValue: (json['bmi'] as num?)?.toDouble(),
-        ageMonths: (json['ageMonths'] as num).toInt(),
-        date: (json['date'] ?? '').toString(),
-      );
-}
+import 'growth_entry.dart';
+import 'child_profile.dart';
+import 'app_colors.dart';
 
 enum _ChartKind { height, weight, bmi }
 
@@ -94,8 +56,8 @@ class ChildGrowthChart extends StatefulWidget {
 }
 
 class _ChildGrowthChartState extends State<ChildGrowthChart> {
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _bg = Color(0xFFF6F3FF);
+  
+  
   static const Color _card = Colors.white;
 
   // 성별(프로필 기준)
@@ -291,20 +253,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   }
 
 
-  // ✅ 레거시(name 기반 key) 데이터를 id 기반 key로 자동 마이그레이션
-  Future<void> _migrateLegacyIfNeeded(SharedPreferences prefs) async {
-    final idKey = 'growth_${widget.childId}';
-    final legacyKey = 'growth_${widget.childName}';
-
-    final idVal = prefs.getString(idKey);
-    if (idVal != null && idVal.trim().isNotEmpty) return;
-
-    final legacyVal = prefs.getString(legacyKey);
-    if (legacyVal != null && legacyVal.trim().isNotEmpty) {
-      await prefs.setString(idKey, legacyVal);
-    }
-  }
-
   // ✅ 같은 월령(ageMonths)에 여러 번 입력했으면, 그래프는 "가장 최신 날짜" 1개만 사용
   // - date는 보통 'yyyy-MM-dd' 이므로 문자열 비교로 최신 판단 가능
   List<GrowthEntry> _aggregateLatestPerMonth(List<GrowthEntry> input) {
@@ -333,8 +281,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ 레거시(name키) -> id키 자동 마이그레이션
-    await _migrateLegacyIfNeeded(prefs);
+    // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
+    await ChildProfile.migrateLegacyGrowthKey(prefs, widget.childId, widget.childName);
 
     final data = prefs.getString('growth_${widget.childId}');
     if (data == null || data.trim().isEmpty) {
@@ -551,7 +499,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     required ValueChanged<bool> onSelected,
     Color? activeColor,
   }) {
-    final c = activeColor ?? _accent;
+    final c = activeColor ?? AppColors.accent;
     return FilterChip(
       selected: selected,
       label: label,
@@ -586,13 +534,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     switch (k) {
       case _ChartKind.height:
         return _entries
-            .where((e) => e.heightCm != null)
-            .map((e) => FlSpot(e.ageMonths.toDouble(), e.heightCm!))
+            .where((e) => e.height != null)
+            .map((e) => FlSpot(e.ageMonths.toDouble(), e.height!))
             .toList();
       case _ChartKind.weight:
         return _entries
-            .where((e) => e.weightKg != null)
-            .map((e) => FlSpot(e.ageMonths.toDouble(), e.weightKg!))
+            .where((e) => e.weight != null)
+            .map((e) => FlSpot(e.ageMonths.toDouble(), e.weight!))
             .toList();
       case _ChartKind.bmi:
         return _entries
@@ -653,13 +601,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         horizontalInterval: yInterval,
         verticalInterval: xInterval,
         getDrawingHorizontalLine: (_) =>
-            FlLine(color: _accent.withOpacity(0.10), strokeWidth: 1),
+            FlLine(color: AppColors.accent.withOpacity(0.10), strokeWidth: 1),
         getDrawingVerticalLine: (_) =>
-            FlLine(color: _accent.withOpacity(0.06), strokeWidth: 1),
+            FlLine(color: AppColors.accent.withOpacity(0.06), strokeWidth: 1),
       ),
       borderData: FlBorderData(
         show: true,
-        border: Border.all(color: _accent.withOpacity(0.12)),
+        border: Border.all(color: AppColors.accent.withOpacity(0.12)),
       ),
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -735,18 +683,18 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             spots: childSpots,
             isCurved: true,
             barWidth: 3,
-            color: _accent,
+            color: AppColors.accent,
             dotData: FlDotData(
               show: true,
               getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
                 radius: 1.6,
-                color: _accent,
+                color: AppColors.accent,
                 strokeWidth: 1.2,
                 strokeColor: Colors.white,
               ),
             ),
             belowBarData:
-                BarAreaData(show: true, color: _accent.withOpacity(0.10)),
+                BarAreaData(show: true, color: AppColors.accent.withOpacity(0.10)),
           ),
       ],
     );
@@ -770,13 +718,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         show: true,
         drawVerticalLine: true,
         getDrawingHorizontalLine: (_) =>
-            FlLine(color: _accent.withOpacity(0.10), strokeWidth: 1),
+            FlLine(color: AppColors.accent.withOpacity(0.10), strokeWidth: 1),
         getDrawingVerticalLine: (_) =>
-            FlLine(color: _accent.withOpacity(0.06), strokeWidth: 1),
+            FlLine(color: AppColors.accent.withOpacity(0.06), strokeWidth: 1),
       ),
       borderData: FlBorderData(
         show: true,
-        border: Border.all(color: _accent.withOpacity(0.12)),
+        border: Border.all(color: AppColors.accent.withOpacity(0.12)),
       ),
       titlesData: const FlTitlesData(
         topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -801,18 +749,18 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             spots: childSpots,
             isCurved: true,
             barWidth: 3,
-            color: _accent,
+            color: AppColors.accent,
             dotData: FlDotData(
               show: true,
               getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
                 radius: 1.6,
-                color: _accent,
+                color: AppColors.accent,
                 strokeWidth: 1.2,
                 strokeColor: Colors.white,
               ),
             ),
             belowBarData:
-                BarAreaData(show: true, color: _accent.withOpacity(0.10)),
+                BarAreaData(show: true, color: AppColors.accent.withOpacity(0.10)),
           ),
       ],
     );
@@ -836,7 +784,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _accent.withOpacity(0.10)),
+          border: Border.all(color: AppColors.accent.withOpacity(0.10)),
           boxShadow: const [
             BoxShadow(
                 color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
@@ -862,7 +810,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: _accent),
+                      color: AppColors.accent),
                 ),
               ],
             ),
@@ -893,7 +841,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       decoration: BoxDecoration(
         color: _card,
-        border: Border(bottom: BorderSide(color: _accent.withOpacity(0.10))),
+        border: Border(bottom: BorderSide(color: AppColors.accent.withOpacity(0.10))),
       ),
       child: Row(
         children: [
@@ -937,7 +885,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             icon: const Icon(Icons.view_agenda_outlined, size: 18),
             label: const Text('전체보기'),
             style: TextButton.styleFrom(
-              foregroundColor: _accent,
+              foregroundColor: AppColors.accent,
               textStyle: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -955,8 +903,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          color: selected ? _accent : Colors.white,
-          border: Border.all(color: _accent.withOpacity(selected ? 0 : 0.18)),
+          color: selected ? AppColors.accent : Colors.white,
+          border: Border.all(color: AppColors.accent.withOpacity(selected ? 0 : 0.18)),
         ),
         child: Text(
           text,
@@ -982,7 +930,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _accent.withOpacity(0.10)),
+        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
         boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
         ],
@@ -999,7 +947,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               Text(
                 '이동/확대',
                 style: TextStyle(
-                    color: _accent.withOpacity(0.95),
+                    color: AppColors.accent.withOpacity(0.95),
                     fontWeight: FontWeight.w900),
               ),
             ],
@@ -1012,7 +960,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showStandard,
                 label: const Text('표준선'),
-                activeColor: _accent,
+                activeColor: AppColors.accent,
                 onSelected: (v) {
                   setState(() {
                     _showStandard = v;
@@ -1023,7 +971,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showChild,
                 label: const Text('아이 데이터'),
-                activeColor: _accent,
+                activeColor: AppColors.accent,
                 onSelected: (v) {
                   setState(() {
                     _showChild = v;
@@ -1084,7 +1032,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                               kind: kind,
                               minY: minY,
                               maxY: maxY,
-                              accent: _accent,
+                              accent: AppColors.accent,
                               showMinMax: false,
                             ),
                           ),
@@ -1137,7 +1085,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                     child: IgnorePointer(
                                       child: CustomPaint(
                                         painter: _CrosshairPainter(
-                                          accent: _accent.withOpacity(0.65),
+                                          accent: AppColors.accent.withOpacity(0.65),
                                         ),
                                       ),
                                     ),
@@ -1149,7 +1097,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                       child: _CenterBadge(
                                         text:
                                             '중심  X=${_fmtX(cx)}개월   Y=${_fmtY(kind, cy)}${unit.isEmpty ? '' : ' $unit'}',
-                                        accent: _accent,
+                                        accent: AppColors.accent,
                                       ),
                                     ),
                                 ],
@@ -1168,7 +1116,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                             child: _FixedXAxis(
                               minX: minX,
                               maxX: maxX,
-                              accent: _accent,
+                              accent: AppColors.accent,
                             ),
                           ),
                         ],
@@ -1184,7 +1132,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             onZoomIn: _zoomIn,
             onZoomOut: _zoomOut,
             onReset: _resetView,
-            accent: _accent,
+            accent: AppColors.accent,
           ),
           const SizedBox(height: 10),
           Text(
@@ -1204,7 +1152,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
 
     return Scaffold(
       bottomNavigationBar: const _GraphPageBanner(),
-            backgroundColor: _bg,
+            backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(title),
         actions: [
@@ -1238,7 +1186,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _accent.withOpacity(0.10)),
+                        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
                       ),
                       child: Text(
                         '표준선(백분위) 위에 아이 데이터가 겹쳐집니다.\n그래프를 터치하면 단일 그래프로 전환됩니다.',

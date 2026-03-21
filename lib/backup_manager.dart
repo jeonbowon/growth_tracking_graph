@@ -129,7 +129,12 @@ class BackupManager {
       text = text.substring(1);
     }
 
-    final decoded = jsonDecode(text);
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(text);
+    } on FormatException {
+      throw Exception('백업 파일이 올바른 JSON 형식이 아닙니다. 파일이 손상되었을 수 있습니다.');
+    }
 
     if (decoded is! Map) {
       throw Exception('백업 파일 형식이 올바르지 않습니다(최상위가 JSON 객체가 아님).');

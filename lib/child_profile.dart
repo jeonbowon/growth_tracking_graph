@@ -1,6 +1,8 @@
 // child_profile.dart
 import 'dart:math';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class ChildProfile {
   final String id; // ✅ 이름이 아니라 "고유 ID"로 저장/조회
   String name;
@@ -47,5 +49,24 @@ class ChildProfile {
     final now = DateTime.now().microsecondsSinceEpoch;
     final r = Random().nextInt(1 << 32);
     return '${now.toRadixString(16)}_${r.toRadixString(16)}';
+  }
+
+  /// 레거시(name 기반) → id 기반 성장 데이터 키 마이그레이션.
+  /// 이미 id 키에 데이터가 있으면 아무것도 하지 않습니다.
+  /// 마이그레이션 후 레거시 키는 삭제합니다.
+  static Future<void> migrateLegacyGrowthKey(
+    SharedPreferences prefs,
+    String childId,
+    String childName,
+  ) async {
+    final idKey = 'growth_$childId';
+    final legacyKey = 'growth_$childName';
+    final idVal = prefs.getString(idKey);
+    if (idVal != null && idVal.trim().isNotEmpty) return;
+    final legacyVal = prefs.getString(legacyKey);
+    if (legacyVal != null && legacyVal.trim().isNotEmpty) {
+      await prefs.setString(idKey, legacyVal);
+      await prefs.remove(legacyKey); // ✅ 레거시 키 삭제
+    }
   }
 }

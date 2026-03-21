@@ -3,37 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
-class GrowthEntry {
-  final double? height; // cm
-  final double? weight; // kg
-  final double? bmi; // kg/m^2
-  final int ageMonths;
-  final String date; // yyyy-MM-dd
-
-  GrowthEntry({
-    required this.height,
-    required this.weight,
-    required this.bmi,
-    required this.ageMonths,
-    required this.date,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'height': height,
-        'weight': weight,
-        'bmi': bmi,
-        'ageMonths': ageMonths,
-        'date': date,
-      };
-
-  factory GrowthEntry.fromJson(Map<String, dynamic> json) => GrowthEntry(
-        height: (json['height'] as num?)?.toDouble(),
-        weight: (json['weight'] as num?)?.toDouble(),
-        bmi: (json['bmi'] as num?)?.toDouble(),
-        ageMonths: (json['ageMonths'] as num).toInt(),
-        date: json['date'] as String,
-      );
-}
+import 'growth_entry.dart';
+import 'child_profile.dart';
 
 class ChildGrowthInput extends StatefulWidget {
   final String childId;
@@ -158,18 +129,10 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ 레거시(name 기반) -> id 기반 자동 마이그레이션
-    final idKey = 'growth_${widget.childId}';
-    final legacyKey = 'growth_${widget.childName}';
-    final idVal = prefs.getString(idKey);
-    if (idVal == null || idVal.trim().isEmpty) {
-      final legacyVal = prefs.getString(legacyKey);
-      if (legacyVal != null && legacyVal.trim().isNotEmpty) {
-        await prefs.setString(idKey, legacyVal);
-      }
-    }
+    // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
+    await ChildProfile.migrateLegacyGrowthKey(prefs, widget.childId, widget.childName);
 
-    final key = idKey;
+    final key = 'growth_${widget.childId}';
     final existing = prefs.getString(key);
     List<dynamic> growthList = existing != null ? json.decode(existing) : [];
 
