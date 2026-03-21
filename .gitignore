@@ -50,4 +50,5 @@ app.*.map.json
 
 linux/flutter/
 macos/Flutter/
-windows/flutter/.claude/
+windows/flutter/
+.claude/
