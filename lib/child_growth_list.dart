@@ -81,7 +81,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       final parsed = raw
           .whereType<Map>()
           .map((e) => GrowthEntry.fromJson(Map<String, dynamic>.from(e)))
-          .toList(growable: false)
+          .toList()
         ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
 
       if (mounted) setState(() => entries = parsed);
