@@ -1563,24 +1563,37 @@ class _GraphPageBanner extends StatefulWidget {
 class _GraphPageBannerState extends State<_GraphPageBanner> {
   BannerAd? _banner;
   bool _loaded = false;
+  bool _adRequested = false;
 
   String get _adUnitId {
-    // Google 공식 테스트 배너 광고 단위 ID
     if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/7813119098';
     if (Platform.isIOS) return 'ca-app-pub-3940256099942544/2934735716';
     return '';
   }
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_adRequested) {
+      _adRequested = true;
+      _loadBanner();
+    }
+  }
 
+  Future<void> _loadBanner() async {
     final unitId = _adUnitId;
     if (unitId.isEmpty) return;
 
-    _banner = BannerAd(
+    final width = MediaQuery.of(context).size.width.truncate();
+    final adSize =
+        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width) ??
+            AdSize.banner;
+
+    if (!mounted) return;
+
+    final banner = BannerAd(
       adUnitId: unitId,
-      size: AdSize.banner,
+      size: adSize,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
@@ -1597,6 +1610,12 @@ class _GraphPageBannerState extends State<_GraphPageBanner> {
         },
       ),
     )..load();
+
+    if (!mounted) {
+      banner.dispose();
+      return;
+    }
+    setState(() => _banner = banner);
   }
 
   @override

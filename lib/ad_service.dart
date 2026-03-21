@@ -14,6 +14,8 @@ class AdService {
   AdService._();
   static final AdService instance = AdService._();
 
+  bool _isDisposed = false;
+
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
 
@@ -25,13 +27,14 @@ class AdService {
 
   InterstitialAd? _interstitialAd;
   bool _isInterstitialLoading = false;
+  Timer? _interstitialRetryTimer;
 
   DateTime? _lastInterstitialShownAt;
   final DateTime _serviceStartedAt = DateTime.now();
 
-  static const Duration _interstitialCooldown = Duration(seconds: 120);
+  static const Duration _interstitialCooldown = Duration(seconds: 90);
   static const Duration _minAppAgeBeforeInterstitial = Duration(seconds: 30);
-  static const int _showEveryNthEligibleTransition = 3;
+  static const int _showEveryNthEligibleTransition = 2;
 
   int _naturalTransitionAttemptCount = 0;
 
@@ -51,6 +54,7 @@ class AdService {
   }
 
   void loadBanner() {
+    if (_isDisposed) return;
     if (_bannerAd != null) return;
     final unitId = bannerAdUnitId;
     if (unitId.isEmpty) return;
@@ -84,6 +88,7 @@ class AdService {
   }
 
   void _scheduleBannerRetry() {
+    if (_isDisposed) return;
     if (_bannerRetryTimer != null) return;
     final attempt = _bannerRetryAttempt.clamp(0, 10);
     final seconds = (1 << attempt).clamp(1, 60);
@@ -92,12 +97,14 @@ class AdService {
 
     _bannerRetryTimer = Timer(delay, () {
       _bannerRetryTimer = null;
+      if (_isDisposed) return;
       if (_bannerAd != null || _isBannerLoaded) return;
       loadBanner();
     });
   }
 
   void forceReloadBanner() {
+    if (_isDisposed) return;
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
     _bannerAd?.dispose();
@@ -112,6 +119,7 @@ class AdService {
   }
 
   Future<void> _loadInterstitialIfNeeded() async {
+    if (_isDisposed) return;
     if (_interstitialAd != null || _isInterstitialLoading) return;
     final unitId = interstitialAdUnitId;
     if (unitId.isEmpty) return;
@@ -123,6 +131,10 @@ class AdService {
         request: const AdRequest(),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
+            if (_isDisposed) {
+              ad.dispose();
+              return;
+            }
             _interstitialAd = ad;
             _isInterstitialLoading = false;
             ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -141,6 +153,13 @@ class AdService {
           onAdFailedToLoad: (error) {
             _interstitialAd = null;
             _isInterstitialLoading = false;
+            // 30초 후 재시도
+            _interstitialRetryTimer?.cancel();
+            _interstitialRetryTimer = Timer(const Duration(seconds: 30), () {
+              _interstitialRetryTimer = null;
+              if (_isDisposed) return;
+              _loadInterstitialIfNeeded();
+            });
           },
         ),
       );
@@ -210,6 +229,8 @@ class AdService {
   }
 
   void dispose() {
+    _isDisposed = true;
+
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
     _bannerAd?.dispose();
@@ -218,6 +239,8 @@ class AdService {
     _bannerRetryAttempt = 0;
     _notifyBannerChanged();
 
+    _interstitialRetryTimer?.cancel();
+    _interstitialRetryTimer = null;
     _interstitialAd?.dispose();
     _interstitialAd = null;
     _isInterstitialLoading = false;
