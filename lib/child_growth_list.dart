@@ -104,18 +104,18 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
   void _confirmDelete(int index) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('삭제 확인'),
         content: const Text('이 기록을 삭제하시겠습니까?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('취소'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               _deleteEntry(index);
             },
             child: const Text('삭제'),
@@ -125,9 +125,10 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     );
   }
 
-  void _deleteEntry(int index) {
+  Future<void> _deleteEntry(int index) async {
     setState(() => entries.removeAt(index));
-    _saveEntries();
+    await _saveEntries();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('기록이 삭제되었습니다.')),
     );
