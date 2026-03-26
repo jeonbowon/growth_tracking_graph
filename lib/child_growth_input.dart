@@ -137,12 +137,19 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     List<dynamic> growthList = existing != null ? json.decode(existing) : [];
 
     growthList.add(entry.toJson());
-    await prefs.setString(key, json.encode(growthList));
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('저장되었습니다')));
+    try {
+      await prefs.setString(key, json.encode(growthList));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장 중 오류가 발생했습니다.')),
+      );
+      return;
+    }
 
     if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('저장되었습니다')));
     Navigator.pop(context);
   }
 

@@ -12,6 +12,14 @@ Future<void> main() async {
 
   // Google Mobile Ads SDK 초기화
   await MobileAds.instance.initialize();
+  MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(
+      testDeviceIds: [
+        '2A17A469EEC2D5F0054CC27E08230F27',
+        '580515C2E9C58494D3CB6F94A93040C1',
+      ],
+    ),
+  );
 
   // 앱 전역 공통 배너 1회 로드
   AdService.instance.loadBanner();

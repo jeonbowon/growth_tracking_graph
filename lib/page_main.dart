@@ -72,7 +72,7 @@ class _MainPageState extends State<MainPage> {
     setState(() => children = parsed);
   }
 
-  void _deleteProfile(ChildProfile child) async {
+  Future<void> _deleteProfile(ChildProfile child) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString('childProfiles');
     if (jsonString == null) return;
@@ -90,8 +90,9 @@ class _MainPageState extends State<MainPage> {
     await prefs.remove('growth_${child.id}');
     await prefs.remove('growth_${child.name}');
 
-    _loadChildren();
+    await _loadChildren();
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('프로필이 삭제되었습니다.')),
     );

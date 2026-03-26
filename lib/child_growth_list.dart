@@ -98,7 +98,14 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
   Future<void> _saveEntries() async {
     final prefs = await SharedPreferences.getInstance();
     final list = entries.map((e) => e.toJson()).toList();
-    await prefs.setString('growth_${widget.childId}', json.encode(list));
+    try {
+      await prefs.setString('growth_${widget.childId}', json.encode(list));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
   void _confirmDelete(int index) {
