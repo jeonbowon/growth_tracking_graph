@@ -79,7 +79,14 @@ class _CommonBannerState extends State<CommonBanner> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded || _banner == null) return const SizedBox.shrink();
+    const double bannerHeight = 50.0;
+
+    if (!_loaded || _banner == null) {
+      return const SafeArea(
+        top: false,
+        child: SizedBox(width: double.infinity, height: bannerHeight),
+      );
+    }
 
     final ad = _banner!;
     return SafeArea(

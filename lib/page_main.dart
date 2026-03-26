@@ -397,8 +397,8 @@ class _MainPageState extends State<MainPage> {
   // ✅ 하단 고정 메뉴: 가로 1줄 / 높이 축소
   Widget _buildBottomMenu() {
     return Container(
-      height: 86,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      height: 106,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
       decoration: BoxDecoration(
         color: AppColors.bottomBar,
         boxShadow: [
