@@ -6,6 +6,12 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3852398620139102~2130371989"/>
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="1648806816403115"/>
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="@string/facebook_client_token"/>
 
         <activity
             android:name=".MainActivity"

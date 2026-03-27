@@ -1,6 +1,7 @@
 // common_banner.dart
 import 'dart:io';
 
+import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -17,6 +18,9 @@ class _CommonBannerState extends State<CommonBanner> {
   BannerAd? _banner;
   bool _loaded = false;
   bool _adRequested = false;
+  bool _admobFailed = false;
+
+  static const String _metaBannerPlacementId = '939805188640197_939805755306807';
 
   String get _adUnitId {
     if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/7813119098';
@@ -59,6 +63,7 @@ class _CommonBannerState extends State<CommonBanner> {
           setState(() {
             _banner = null;
             _loaded = false;
+            _admobFailed = true;
           });
         },
       ),
@@ -80,6 +85,22 @@ class _CommonBannerState extends State<CommonBanner> {
   @override
   Widget build(BuildContext context) {
     const double bannerHeight = 50.0;
+
+    // AdMob 로드 실패 시 Meta 배너 표시
+    if (_admobFailed) {
+      return SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: bannerHeight,
+          child: FacebookBannerAd(
+            placementId: _metaBannerPlacementId,
+            bannerSize: BannerSize.STANDARD,
+            listener: (result, value) {},
+          ),
+        ),
+      );
+    }
 
     if (!_loaded || _banner == null) {
       return const SafeArea(

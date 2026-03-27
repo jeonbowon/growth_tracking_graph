@@ -1,8 +1,14 @@
 // page_app_explanation.dart
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class PageAppExplanation extends StatelessWidget {
   const PageAppExplanation({Key? key}) : super(key: key);
+
+  Future<String> _appVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    return 'v${info.version}+${info.buildNumber}';
+  }
 
   Widget _sectionTitle(String text) {
     return Padding(
@@ -34,7 +40,13 @@ class PageAppExplanation extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('사용 설명'),
+        title: FutureBuilder<String>(
+          future: _appVersion(),
+          builder: (context, snapshot) {
+            final version = snapshot.data ?? '';
+            return Text(version.isEmpty ? '사용 설명' : '사용 설명  $version');
+          },
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -16,8 +17,10 @@ class AdService {
 
   bool _isDisposed = false;
 
+  // AdMob 배너
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
+  bool _isMetaBannerFallback = false;
 
   Timer? _bannerRetryTimer;
   int _bannerRetryAttempt = 0;
@@ -25,9 +28,15 @@ class AdService {
   final ValueNotifier<int> _bannerRevision = ValueNotifier<int>(0);
   ValueNotifier<int> get bannerRevision => _bannerRevision;
 
+  // AdMob 전면광고
   InterstitialAd? _interstitialAd;
   bool _isInterstitialLoading = false;
   Timer? _interstitialRetryTimer;
+
+  // Meta 전면광고
+  bool _isMetaInterstitialLoaded = false;
+  bool _isMetaInterstitialLoading = false;
+  Completer<void>? _metaInterstitialCompleter;
 
   DateTime? _lastInterstitialShownAt;
   final DateTime _serviceStartedAt = DateTime.now();
@@ -40,6 +49,12 @@ class AdService {
 
   bool get isBannerLoaded => _isBannerLoaded;
   BannerAd? get bannerAd => _bannerAd;
+
+  /// AdMob 배너 로드 실패 시 Meta 배너를 대신 표시해야 하는지 여부
+  bool get isMetaBannerFallback => _isMetaBannerFallback;
+
+  static const String metaBannerPlacementId = '939805188640197_939805755306807';
+  static const String _metaInterstitialPlacementId = '939805188640197_939805748640141';
 
   String get interstitialAdUnitId {
     if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/9072247918';
@@ -61,6 +76,7 @@ class AdService {
 
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
+    _isMetaBannerFallback = false;
 
     _bannerAd = BannerAd(
       adUnitId: unitId,
@@ -69,6 +85,7 @@ class AdService {
       listener: BannerAdListener(
         onAdLoaded: (ad) {
           _isBannerLoaded = true;
+          _isMetaBannerFallback = false;
           _bannerRetryAttempt = 0;
           _notifyBannerChanged();
         },
@@ -76,6 +93,7 @@ class AdService {
           ad.dispose();
           _bannerAd = null;
           _isBannerLoaded = false;
+          _isMetaBannerFallback = true;
           _notifyBannerChanged();
           _scheduleBannerRetry();
         },
@@ -110,12 +128,14 @@ class AdService {
     _bannerAd?.dispose();
     _bannerAd = null;
     _isBannerLoaded = false;
+    _isMetaBannerFallback = false;
     _notifyBannerChanged();
     loadBanner();
   }
 
   void preloadInterstitial() {
     _loadInterstitialIfNeeded();
+    _loadMetaInterstitialIfNeeded();
   }
 
   Future<void> _loadInterstitialIfNeeded() async {
@@ -160,6 +180,8 @@ class AdService {
               if (_isDisposed) return;
               _loadInterstitialIfNeeded();
             });
+            // AdMob 실패 시 Meta 전면광고 사전 로드
+            _loadMetaInterstitialIfNeeded();
           },
         ),
       );
@@ -167,6 +189,45 @@ class AdService {
       _interstitialAd = null;
       _isInterstitialLoading = false;
     }
+  }
+
+  void _loadMetaInterstitialIfNeeded() {
+    if (_isDisposed) return;
+    if (_isMetaInterstitialLoaded || _isMetaInterstitialLoading) return;
+
+    _isMetaInterstitialLoading = true;
+    FacebookInterstitialAd.loadInterstitialAd(
+      placementId: _metaInterstitialPlacementId,
+      listener: (result, value) {
+        if (_isDisposed) return;
+        switch (result) {
+          case InterstitialAdResult.LOADED:
+            _isMetaInterstitialLoaded = true;
+            _isMetaInterstitialLoading = false;
+            break;
+          case InterstitialAdResult.DISMISSED:
+            _isMetaInterstitialLoaded = false;
+            _lastInterstitialShownAt = DateTime.now();
+            _metaInterstitialCompleter?.complete();
+            _metaInterstitialCompleter = null;
+            _loadMetaInterstitialIfNeeded();
+            break;
+          case InterstitialAdResult.ERROR:
+            _isMetaInterstitialLoaded = false;
+            _isMetaInterstitialLoading = false;
+            _metaInterstitialCompleter?.complete();
+            _metaInterstitialCompleter = null;
+            // 30초 후 재시도
+            Timer(const Duration(seconds: 30), () {
+              if (_isDisposed) return;
+              _loadMetaInterstitialIfNeeded();
+            });
+            break;
+          default:
+            break;
+        }
+      },
+    );
   }
 
   bool _canShowInterstitialNow() {
@@ -196,7 +257,25 @@ class AdService {
 
     await _loadInterstitialIfNeeded();
     final ad = _interstitialAd;
-    if (ad == null) return;
+
+    if (ad == null) {
+      // AdMob 전면광고 없으면 Meta 전면광고 fallback
+      if (_isMetaInterstitialLoaded) {
+        _metaInterstitialCompleter = Completer<void>();
+        try {
+          FacebookInterstitialAd.showInterstitialAd();
+          await _metaInterstitialCompleter!.future;
+        } catch (_) {
+          _isMetaInterstitialLoaded = false;
+          _metaInterstitialCompleter?.complete();
+          _metaInterstitialCompleter = null;
+          _loadMetaInterstitialIfNeeded();
+        }
+      } else {
+        _loadMetaInterstitialIfNeeded();
+      }
+      return;
+    }
 
     final completer = Completer<void>();
 
@@ -244,5 +323,10 @@ class AdService {
     _interstitialAd?.dispose();
     _interstitialAd = null;
     _isInterstitialLoading = false;
+
+    _isMetaInterstitialLoaded = false;
+    _isMetaInterstitialLoading = false;
+    _metaInterstitialCompleter?.complete();
+    _metaInterstitialCompleter = null;
   }
 }
