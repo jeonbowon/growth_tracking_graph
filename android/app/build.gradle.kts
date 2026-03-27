@@ -78,10 +78,9 @@ android {
                 // (release 서명 없이는 Play 업로드가 불가)
             }
 
-            // 필요시 추후 설정
-            // isMinifyEnabled = false
-            // isShrinkResources = false
-            // proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
