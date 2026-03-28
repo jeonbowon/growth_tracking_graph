@@ -5,6 +5,8 @@ import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import 'ad_service.dart';
+
 /// 앱 어디서든 공통으로 사용하는 배너 광고 위젯
 /// Adaptive Banner 사용 (스크린 너비에 맞춰 자동 조정)
 class CommonBanner extends StatefulWidget {
@@ -40,6 +42,8 @@ class _CommonBannerState extends State<CommonBanner> {
   Future<void> _loadBanner() async {
     final unitId = _adUnitId;
     if (unitId.isEmpty) return;
+
+    if (!mounted) return;
 
     final width = MediaQuery.of(context).size.width.truncate();
     final adSize =

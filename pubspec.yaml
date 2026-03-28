@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.8+12
+version: 1.0.9+13
 
 environment:
   sdk: ^3.8.1
@@ -35,7 +35,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.1.1
-  google_fonts: ^6.1.0
   fl_chart: ^1.0.0
   intl: ^0.18.1
   path_provider: ^2.1.4
@@ -44,6 +43,7 @@ dependencies:
   google_mobile_ads: ^6.0.0
   facebook_audience_network: ^1.0.1
   package_info_plus: ^8.0.0
+  in_app_update: ^4.2.3
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1
@@ -76,6 +76,22 @@ flutter:
   assets:
     - assets/standard_growth_2017.json
     - assets/icon/app_icon.png
+
+  fonts:
+    - family: NotoSansKR
+      fonts:
+        - asset: assets/fonts/NotoSansKR-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansKR-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansKR-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansKR-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/NotoSansKR-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/NotoSansKR-Black.ttf
+          weight: 900
 
   # To add assets to your application, add an assets section, like this:
   # assets:

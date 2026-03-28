@@ -1,6 +1,7 @@
 // page_main.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'dart:convert';
 
 import 'child_profile.dart';
@@ -28,6 +29,37 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _loadChildren();
+    // Play Store 네트워크 요청이 광고 SDK 초기화와 경쟁하지 않도록 3초 후 실행
+    Future.delayed(const Duration(seconds: 3), _checkForUpdate);
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (!mounted) return;
+
+      if (info.updateAvailability != UpdateAvailability.updateAvailable) return;
+      if (!info.flexibleUpdateAllowed) return;
+
+      // 백그라운드 다운로드 시작 — 완료되면 success 반환
+      final result = await InAppUpdate.startFlexibleUpdate();
+      if (!mounted) return;
+
+      if (result == AppUpdateResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('새 버전이 준비되었습니다.'),
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: '지금 업데이트',
+              onPressed: () => InAppUpdate.completeFlexibleUpdate(),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // 업데이트 확인 실패는 조용히 무시
+    }
   }
 
   Future<void> _loadChildren() async {

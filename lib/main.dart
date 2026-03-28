@@ -1,6 +1,8 @@
 // main.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'package:facebook_audience_network/facebook_audience_network.dart';
@@ -12,60 +14,73 @@ import 'app_colors.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Google Mobile Ads SDK 초기화
-  await MobileAds.instance.initialize();
-  MobileAds.instance.updateRequestConfiguration(
-    RequestConfiguration(
-      testDeviceIds: [
-        '2A17A469EEC2D5F0054CC27E08230F27',
-        '580515C2E9C58494D3CB6F94A93040C1',
-      ],
-    ),
-  );
-
-  // Meta Audience Network 초기화
-  // testingId에 등록된 기기(개발 기기)는 항상 테스트 광고 표시
-  // 그 외 모든 사용자에게는 실제 광고 표시
-  // (init()을 기기별로 호출해 AdSettings.addTestDevice()를 각각 등록)
-  await FacebookAudienceNetwork.init(
-    testingId: '8a288edb-23e9-476c-a9e5-ea60b8c31e7c',
-  );
-  await FacebookAudienceNetwork.init(
-    testingId: 'c450a4b5-80b4-4105-9f72-360a5eac84a4',
-  );
-
-  // 앱 전역 공통 배너 1회 로드
-  AdService.instance.loadBanner();
-
-  // 전면 광고도 미리 로드(자연스러운 화면 전환 시 제한적 노출)
-  AdService.instance.preloadInterstitial();
+  // 광고 SDK 초기화를 백그라운드에서 시작 — UI 렌더링을 블로킹하지 않음
+  unawaited(_initAds());
 
   runApp(GrowthApp());
 }
 
-class GrowthApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accent,
-        brightness: Brightness.light,
-      ),
-      scaffoldBackgroundColor: AppColors.bg,
-      textTheme: GoogleFonts.notoSansKrTextTheme(Theme.of(context).textTheme),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.appBar,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 0,
+/// Google Ads + Meta Ads를 병렬로 초기화한 뒤 전면광고를 사전 로드합니다.
+Future<void> _initAds() async {
+  try {
+    await MobileAds.instance.initialize();
+    MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(
+        testDeviceIds: [
+          '2A17A469EEC2D5F0054CC27E08230F27',
+          '580515C2E9C58494D3CB6F94A93040C1',
+        ],
       ),
     );
+    AdService.markAdsReady();
+  } finally {
+    AdService.markAdsReady();
+  }
 
+  // Meta는 배너와 무관하므로 별도 비동기 실행 (배너 로드를 블로킹하지 않음)
+  unawaited(_initFacebook());
+
+  AdService.instance.preloadInterstitial();
+}
+
+/// Meta SDK를 초기화한 뒤, 두 개발 기기를 모두 테스트 기기로 등록합니다.
+///
+/// init()을 두 번 호출하면 두 번째 호출이 SDK를 재초기화하면서
+/// 첫 번째 기기 등록이 리셋되는 문제가 있습니다.
+/// 따라서 init()은 한 번만 호출하고, 이후 addTestDevice()를
+/// 네이티브 채널로 직접 호출해 두 기기를 모두 등록합니다.
+Future<void> _initFacebook() async {
+  await FacebookAudienceNetwork.init();
+
+  const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/ad_settings');
+  await channel.invokeMethod('addTestDevice', {'testingId': 'c450a4b5-80b4-4105-9f72-360a5eac84a4'});
+  await channel.invokeMethod('addTestDevice', {'testingId': '8a288edb-23e9-476c-a9e5-ea60b8c31e7c'});
+}
+
+class GrowthApp extends StatelessWidget {
+  // build()마다 재생성되지 않도록 한 번만 계산
+  static final _theme = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.accent,
+      brightness: Brightness.light,
+    ),
+    scaffoldBackgroundColor: AppColors.bg,
+    fontFamily: 'NotoSansKR',
+    appBarTheme: const AppBarTheme(
+      backgroundColor: AppColors.appBar,
+      foregroundColor: Colors.white,
+      centerTitle: true,
+      elevation: 0,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: '우리아이 성장 그래프',
       debugShowCheckedModeBanner: false,
-      theme: base,
+      theme: _theme,
       home: MainPage(),
     );
   }

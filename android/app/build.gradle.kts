@@ -28,7 +28,7 @@ if (hasKeystore) {
 
 android {
     namespace = "com.tnbsoft.growth_tracking_graph"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -87,4 +87,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("com.facebook.android:audience-network-sdk:6.+")
 }

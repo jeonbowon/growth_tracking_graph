@@ -15,6 +15,13 @@ class AdService {
   AdService._();
   static final AdService instance = AdService._();
 
+  // 광고 SDK(MobileAds + Meta) 초기화 완료 신호
+  static final Completer<void> _adsReadyCompleter = Completer<void>();
+  static Future<void> get adsReady => _adsReadyCompleter.future;
+  static void markAdsReady() {
+    if (!_adsReadyCompleter.isCompleted) _adsReadyCompleter.complete();
+  }
+
   bool _isDisposed = false;
 
   // AdMob 배너
