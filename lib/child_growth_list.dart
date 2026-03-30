@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'growth_entry.dart';
 import 'child_profile.dart';
 import 'app_colors.dart';
+import 'app_strings.dart';
 
 class ChildGrowthList extends StatefulWidget {
   final String childId;
@@ -90,7 +91,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       // 깨지지 않게 만드는 게 이번 수정의 핵심입니다.
       if (mounted) setState(() => entries = []);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('성장 데이터 로딩 중 오류가 발생했습니다.')),
+        SnackBar(content: Text(AppStrings.loadError)),
       );
     }
   }
@@ -103,7 +104,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('저장 중 오류가 발생했습니다.')),
+        SnackBar(content: Text(AppStrings.saveErrorList)),
       );
     }
   }
@@ -112,12 +113,12 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('삭제 확인'),
-        content: const Text('이 기록을 삭제하시겠습니까?'),
+        title: Text(AppStrings.confirmDeleteRecord),
+        content: Text(AppStrings.confirmDeleteRecordMsg),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
+            child: Text(AppStrings.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -125,7 +126,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
               Navigator.of(dialogContext).pop();
               _deleteEntry(index);
             },
-            child: const Text('삭제'),
+            child: Text(AppStrings.delete),
           ),
         ],
       ),
@@ -137,7 +138,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     await _saveEntries();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('기록이 삭제되었습니다.')),
+      SnackBar(content: Text(AppStrings.recordDeleted)),
     );
   }
 
@@ -153,40 +154,40 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('기록 수정'),
+        title: Text(AppStrings.editRecord),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text('날짜: ${e.date}'),
+                child: Text('${AppStrings.dateLabel}${e.date}'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: ageController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '나이 (개월)'),
+                decoration: InputDecoration(labelText: AppStrings.labelAgeMo),
               ),
               TextField(
                 controller: heightController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '키 (cm)'),
+                decoration: InputDecoration(labelText: AppStrings.labelHeight),
               ),
               TextField(
                 controller: weightController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '몸무게 (kg)'),
+                decoration: InputDecoration(labelText: AppStrings.labelWeight),
               ),
               TextField(
                 controller: bmiController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'BMI (자동/수동)'),
+                decoration: InputDecoration(labelText: AppStrings.labelBmiEdit),
               ),
               const SizedBox(height: 6),
-              const Text(
-                '※ 키+몸무게가 있으면 BMI는 자동 계산 가능합니다.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+              Text(
+                AppStrings.bmiAutoHint,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
           ),
@@ -194,7 +195,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: Text(AppStrings.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
@@ -206,7 +207,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
               // 둘 다 비면 저장 불가 (입력 화면과 동일 정책)
               if (newH == null && newW == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('키 또는 몸무게 중 하나는 입력되어야 합니다.')),
+                  SnackBar(content: Text(AppStrings.heightOrWeightRequiredEdit)),
                 );
                 return;
               }
@@ -236,7 +237,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
               await _saveEntries();
               if (mounted) Navigator.pop(context);
             },
-            child: const Text('저장', style: TextStyle(color: Colors.white)),
+            child: Text(AppStrings.save, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -254,10 +255,10 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: Text('${widget.childName} 성장 기록'),
+        title: Text(AppStrings.growthListTitle(widget.childName)),
         actions: [
           IconButton(
-            tooltip: '새로고침',
+            tooltip: AppStrings.refresh,
             onPressed: _loadEntries,
             icon: const Icon(Icons.refresh),
           )
@@ -266,7 +267,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       body: entries.isEmpty
           ? Center(
               child: Text(
-                '저장된 데이터가 없습니다.',
+                AppStrings.noData,
                 style: TextStyle(color: Colors.black.withOpacity(0.65)),
               ),
             )
@@ -317,7 +318,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${e.date} · ${e.ageMonths}개월',
+                                  AppStrings.entryDateAge(e.date, e.ageMonths),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
@@ -325,14 +326,14 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '키 $hText cm / 몸무게 $wText kg / BMI $bmiText',
+                                  AppStrings.entryHeightWeightBmi(hText, wText, bmiText),
                                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
-                            tooltip: '삭제',
+                            tooltip: AppStrings.deleteTooltip,
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
                             onPressed: () => _confirmDelete(index),
                           ),

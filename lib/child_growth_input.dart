@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'growth_entry.dart';
 import 'child_profile.dart';
+import 'app_strings.dart';
 
 class ChildGrowthInput extends StatefulWidget {
   final String childId;
@@ -88,7 +89,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('BMI는 키와 몸무게를 모두 입력해야 계산됩니다')),
+        SnackBar(content: Text(AppStrings.bmiNeedsHW)),
       );
     }
   }
@@ -100,7 +101,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     // 둘 다 없으면 저장 불가 (둘 중 하나만 있어도 저장 OK)
     if (height == null && weight == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('키 또는 몸무게 중 하나는 입력해주세요')),
+        SnackBar(content: Text(AppStrings.heightOrWeightRequired)),
       );
       return;
     }
@@ -142,14 +143,14 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('저장 중 오류가 발생했습니다.')),
+        SnackBar(content: Text(AppStrings.saveErrorMsg)),
       );
       return;
     }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('저장되었습니다')));
+        .showSnackBar(SnackBar(content: Text(AppStrings.saved)));
     Navigator.pop(context);
   }
 
@@ -158,8 +159,8 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     final formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
 
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.childName} - 성장 데이터 입력')),
-      body: Padding(
+      appBar: AppBar(title: Text(AppStrings.growthInputTitle(widget.childName))),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,30 +168,30 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
             // 📅 측정일 선택
             Row(
               children: [
-                Text('측정일: $formattedDate'),
+                Text(AppStrings.measureDate(formattedDate)),
                 const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: _pickDate,
-                  child: const Text('날짜 선택'),
+                  child: Text(AppStrings.selectDate),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Text('월령: ${ageInMonths}개월', style: const TextStyle(fontSize: 16)),
+            Text(AppStrings.ageMonths(ageInMonths), style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 20),
 
             // 📏 키 입력
             TextField(
               controller: heightController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '키 (cm)'),
+              decoration: InputDecoration(labelText: AppStrings.labelHeight),
             ),
 
             // ⚖️ 몸무게 입력
             TextField(
               controller: weightController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '몸무게 (kg)'),
+              decoration: InputDecoration(labelText: AppStrings.labelWeight),
             ),
 
             // 📊 체질량 BMI
@@ -200,13 +201,13 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                   child: TextField(
                     controller: bmiController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: '체질량지수 (BMI)'),
+                    decoration: InputDecoration(labelText: AppStrings.labelBmi),
                   ),
                 ),
                 const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: _calculateBMI,
-                  child: const Text('자동 계산'),
+                  child: Text(AppStrings.autoCalc),
                 ),
               ],
             ),
@@ -220,11 +221,11 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                 child: ElevatedButton.icon(
                   onPressed: saveGrowthData,
                   icon: const Icon(Icons.save_alt, size: 24),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14.0),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
                     child: Text(
-                      '성장 데이터 저장',
-                      style: TextStyle(fontSize: 18),
+                      AppStrings.saveGrowthData,
+                      style: const TextStyle(fontSize: 18),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -239,6 +240,42 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.withOpacity(0.20)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(Icons.backup_outlined, color: Colors.teal, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(AppStrings.backupNudgeTitle,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.teal)),
+                        const SizedBox(height: 6),
+                        Text(AppStrings.backupNudgeBody,
+                            style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.5)),
+                        const SizedBox(height: 8),
+                        Text(AppStrings.backupNudgeHint,
+                            style: const TextStyle(fontSize: 11, color: Colors.black38, height: 1.4)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

@@ -15,6 +15,7 @@ import 'child_growth_chart.dart';
 import 'backup_manager.dart';
 import 'common_banner.dart';
 import 'ad_service.dart';
+import 'app_strings.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -48,10 +49,10 @@ class _MainPageState extends State<MainPage> {
       if (result == AppUpdateResult.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('새 버전이 준비되었습니다.'),
+            content: Text(AppStrings.updateReady),
             duration: const Duration(seconds: 10),
             action: SnackBarAction(
-              label: '지금 업데이트',
+              label: AppStrings.updateNow,
               onPressed: () => InAppUpdate.completeFlexibleUpdate(),
             ),
           ),
@@ -126,7 +127,7 @@ class _MainPageState extends State<MainPage> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('프로필이 삭제되었습니다.')),
+      SnackBar(content: Text(AppStrings.profileDeleted)),
     );
   }
 
@@ -134,12 +135,12 @@ class _MainPageState extends State<MainPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('프로필 삭제'),
-        content: const Text('정말 이 프로필을 삭제하시겠습니까?'),
+        title: Text(AppStrings.confirmDeleteProfile),
+        content: Text(AppStrings.confirmDeleteProfileMsg),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: Text(AppStrings.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -147,7 +148,7 @@ class _MainPageState extends State<MainPage> {
               Navigator.pop(context);
               _deleteProfile(child);
             },
-            child: const Text('삭제'),
+            child: Text(AppStrings.delete),
           ),
         ],
       ),
@@ -186,7 +187,7 @@ class _MainPageState extends State<MainPage> {
             const SizedBox(height: 10),
             ListTile(
               leading: const Icon(Icons.add, color: AppColors.accent),
-              title: const Text('성장 데이터 입력'),
+              title: Text(AppStrings.actionAddData),
               onTap: () async {
                 Navigator.pop(context);
                 await Navigator.push(
@@ -203,7 +204,7 @@ class _MainPageState extends State<MainPage> {
             ),
             ListTile(
               leading: const Icon(Icons.edit, color: AppColors.accent),
-              title: const Text('데이터 보기 및 수정'),
+              title: Text(AppStrings.actionViewEdit),
               onTap: () async {
                 Navigator.pop(context);
                 await AdService.instance.tryShowInterstitialOnNaturalTransition();
@@ -222,7 +223,7 @@ class _MainPageState extends State<MainPage> {
             ),
             ListTile(
               leading: const Icon(Icons.show_chart, color: AppColors.accent),
-              title: const Text('그래프 보기'),
+              title: Text(AppStrings.actionViewChart),
               onTap: () async {
                 Navigator.pop(context);
                 await AdService.instance.tryShowInterstitialOnNaturalTransition();
@@ -241,7 +242,7 @@ class _MainPageState extends State<MainPage> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('프로필 삭제'),
+              title: Text(AppStrings.actionDeleteProfile),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteProfile(child);
@@ -260,17 +261,17 @@ class _MainPageState extends State<MainPage> {
       bottomNavigationBar: const CommonBanner(),
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('우리아이 성장 그래프'),
+        title: Text(AppStrings.appTitle),
         actions: [
           IconButton(
-            tooltip: '백업 내보내기',
+            tooltip: AppStrings.backupExport,
             icon: const Icon(Icons.upload_file),
             onPressed: () async {
               await BackupManager.exportBackup(context);
             },
           ),
           IconButton(
-            tooltip: '백업 가져오기',
+            tooltip: AppStrings.backupImport,
             icon: const Icon(Icons.download),
             onPressed: () async {
               try {
@@ -282,7 +283,7 @@ class _MainPageState extends State<MainPage> {
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('가져오기 실패: $e')),
+                  SnackBar(content: Text('${AppStrings.importFailed}$e')),
                 );
               }
             },
@@ -323,13 +324,13 @@ class _MainPageState extends State<MainPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         children: [
           _infoCard(
-            title: '등록된 자녀가 없습니다.',
-            desc: '아래 “프로필” 버튼으로 자녀 정보를 먼저 등록하세요.',
+            title: AppStrings.noChildRegistered,
+            desc: AppStrings.noChildDesc,
           ),
           const SizedBox(height: 10),
-          const Text(
-            '자녀를 선택하면 “성장 데이터 입력 / 보기 및 수정 / 그래프 보기” 메뉴가 열립니다.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
+          Text(
+            AppStrings.noChildHint,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
         ],
       );
@@ -385,7 +386,7 @@ class _MainPageState extends State<MainPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '성별: ${child.gender}  ·  생년월일: $birth',
+                        AppStrings.childCardGenderBirth(child.gender, birth),
                         style: const TextStyle(fontSize: 12, color: Colors.black54),
                       ),
                     ],
@@ -445,13 +446,13 @@ class _MainPageState extends State<MainPage> {
         children: [
           _menuButton(
             icon: Icons.person_add_alt_1,
-            label: '프로필',
+            label: AppStrings.menuProfile,
             onTap: _openProfileInput,
           ),
           const SizedBox(width: 10),
           _menuButton(
             icon: Icons.stacked_line_chart,
-            label: '표준도표',
+            label: AppStrings.menuStandardChart,
             onTap: () async {
               await AdService.instance.tryShowInterstitialOnNaturalTransition();
               if (!mounted) return;
@@ -464,7 +465,7 @@ class _MainPageState extends State<MainPage> {
           const SizedBox(width: 10),
           _menuButton(
             icon: Icons.help_outline,
-            label: '사용설명',
+            label: AppStrings.menuHelp,
             onTap: () {
               Navigator.push(
                 context,

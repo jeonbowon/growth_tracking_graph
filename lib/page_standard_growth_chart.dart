@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'app_strings.dart';
 
 class PageStandardGrowthChart extends StatefulWidget {
   const PageStandardGrowthChart({super.key});
@@ -13,7 +14,7 @@ enum Sex { boy, girl }
 enum Metric { height, weight, bmi }
 
 extension SexX on Sex {
-  String get label => this == Sex.boy ? '남아' : '여아';
+  String get label => this == Sex.boy ? AppStrings.stdChartBoy : AppStrings.stdChartGirl;
   String get key => this == Sex.boy ? 'boys' : 'girls';
 }
 
@@ -21,11 +22,11 @@ extension MetricX on Metric {
   String get label {
     switch (this) {
       case Metric.height:
-        return '신장';
+        return AppStrings.stdChartHeight;
       case Metric.weight:
-        return '체중';
+        return AppStrings.stdChartWeight;
       case Metric.bmi:
-        return 'BMI';
+        return AppStrings.stdChartBmi;
     }
   }
 
@@ -78,7 +79,7 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
     });
 
     try {
-      final s = await DefaultAssetBundle.of(context).loadString('assets/standard_growth_2017.json');
+      final s = await DefaultAssetBundle.of(context).loadString(AppStrings.standardGrowthAsset);
       final decoded = jsonDecode(s) as Map<String, dynamic>;
       setState(() {
         _raw = decoded;
@@ -88,10 +89,7 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
       setState(() {
         _raw = {};
         _loading = false;
-        _error =
-            'assets/standard_growth_2017.json 로드 실패\n'
-            'pubspec.yaml assets 등록/경로를 확인하세요.\n'
-            '오류: $e';
+        _error = '${AppStrings.stdChartLoadError}$e';
       });
     }
   }
@@ -183,9 +181,9 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('표준성장도표 (2017)'),
+        title: Text(AppStrings.stdChartTitle),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: '다시 로드'),
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: AppStrings.stdChartReload),
         ],
       ),
       body: _loading
@@ -204,19 +202,19 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                   child: Column(
                     children: [
                       SegmentedButton<Sex>(
-                        segments: const [
-                          ButtonSegment(value: Sex.boy, label: Text('남아')),
-                          ButtonSegment(value: Sex.girl, label: Text('여아')),
+                        segments: [
+                          ButtonSegment(value: Sex.boy, label: Text(AppStrings.stdChartBoy)),
+                          ButtonSegment(value: Sex.girl, label: Text(AppStrings.stdChartGirl)),
                         ],
                         selected: {_sex},
                         onSelectionChanged: (s) => setState(() => _sex = s.first),
                       ),
                       const SizedBox(height: 8),
                       SegmentedButton<Metric>(
-                        segments: const [
-                          ButtonSegment(value: Metric.height, label: Text('신장')),
-                          ButtonSegment(value: Metric.weight, label: Text('체중')),
-                          ButtonSegment(value: Metric.bmi, label: Text('BMI')),
+                        segments: [
+                          ButtonSegment(value: Metric.height, label: Text(AppStrings.stdChartHeight)),
+                          ButtonSegment(value: Metric.weight, label: Text(AppStrings.stdChartWeight)),
+                          ButtonSegment(value: Metric.bmi, label: Text(AppStrings.stdChartBmi)),
                         ],
                         selected: {_metric},
                         onSelectionChanged: (s) => setState(() => _metric = s.first),
@@ -255,9 +253,9 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                   bottomTitles: AxisTitles(
-                                    axisNameWidget: const Padding(
-                                      padding: EdgeInsets.only(top: 6),
-                                      child: Text('연령(년)  ※ X축은 개월 기반'),
+                                    axisNameWidget: Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(AppStrings.stdChartXLabel),
                                     ),
                                     sideTitles: SideTitles(
                                       showTitles: true,
@@ -289,7 +287,7 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                                         final val = _metric == Metric.bmi
                                             ? s.y.toStringAsFixed(1)
                                             : s.y.toStringAsFixed(0);
-                                        final t = '개월: $m (≈ $years년)\n${_metric.label}: $val ${_metric.unit}';
+                                        final t = AppStrings.stdChartTooltip(m, years, _metric.label, val, _metric.unit);
                                         return LineTooltipItem(t, const TextStyle(fontSize: 12));
                                       }).toList();
                                     },
@@ -312,9 +310,9 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            '출처: 2017 소아청소년 성장도표(대한소아청소년과학회·질병관리본부)',
-                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                          Text(
+                            AppStrings.stdChartSource,
+                            style: const TextStyle(fontSize: 11, color: Colors.black54),
                           ),
                         ],
                       ),

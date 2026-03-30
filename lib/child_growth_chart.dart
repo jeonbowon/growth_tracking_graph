@@ -12,13 +12,14 @@ import 'dart:math' as math;
 import 'growth_entry.dart';
 import 'child_profile.dart';
 import 'app_colors.dart';
+import 'app_strings.dart';
 
 enum _ChartKind { height, weight, bmi }
 
 enum _Sex { boy, girl }
 
 extension _SexX on _Sex {
-  String get label => this == _Sex.boy ? '남아' : '여아';
+  String get label => this == _Sex.boy ? AppStrings.sexBoy : AppStrings.sexGirl;
   String get key => this == _Sex.boy ? 'boys' : 'girls';
 }
 
@@ -319,7 +320,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   Future<void> _loadStandard() async {
     try {
       final s = await DefaultAssetBundle.of(context)
-          .loadString('assets/standard_growth_2017.json');
+          .loadString(AppStrings.standardGrowthAsset);
       _stdRaw = jsonDecode(s) as Map<String, dynamic>;
       setState(() {
         _stdLoaded = true;
@@ -328,10 +329,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     } catch (e) {
       setState(() {
         _stdLoaded = false;
-        _stdError =
-            '표준 데이터 로드 실패: assets/standard_growth_2017.json\n'
-            'pubspec.yaml assets 등록/경로를 확인하세요.\n'
-            '오류: $e';
+        _stdError = '${AppStrings.stdChartLoadError}$e';
       });
     }
   }
@@ -451,11 +449,11 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   String _titleOf(_ChartKind k) {
     switch (k) {
       case _ChartKind.height:
-        return '키';
+        return AppStrings.chartHeight;
       case _ChartKind.weight:
-        return '몸무게';
+        return AppStrings.chartWeight;
       case _ChartKind.bmi:
-        return '체질량(BMI)';
+        return AppStrings.chartBmi;
     }
   }
 
@@ -615,9 +613,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         bottomTitles: AxisTitles(
           axisNameWidget: Transform.translate(
             offset: const Offset(0, -8),
-            child: const Text(
-              '개월',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            child: Text(
+              AppStrings.monthUnit,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
           sideTitles: SideTitles(
@@ -650,9 +648,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             return touchedSpots.map((s) {
               final unit = _unitOf(kind);
               final y = s.y.toStringAsFixed(kind == _ChartKind.bmi ? 1 : 1);
-              final text = unit.isEmpty
-                  ? '${s.x.toInt()}개월\n$y'
-                  : '${s.x.toInt()}개월\n$y $unit';
+              final text = AppStrings.chartTooltip(s.x.toInt(), y, unit);
               return LineTooltipItem(
                 text,
                 const TextStyle(
@@ -805,9 +801,9 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                           fontSize: 12, color: Colors.black54)),
                 ],
                 const Spacer(),
-                const Text(
-                  '선택',
-                  style: TextStyle(
+                Text(
+                  AppStrings.selectLabel,
+                  style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppColors.accent),
@@ -846,7 +842,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       child: Row(
         children: [
           Expanded(
-            child: _segButton('키', k == _ChartKind.height, () {
+            child: _segButton(AppStrings.chartHeight, k == _ChartKind.height, () {
               setState(() {
                 _selected = _ChartKind.height;
                 _isPointerDownOnChart = false;
@@ -856,7 +852,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _segButton('몸무게', k == _ChartKind.weight, () {
+            child: _segButton(AppStrings.chartWeight, k == _ChartKind.weight, () {
               setState(() {
                 _selected = _ChartKind.weight;
                 _isPointerDownOnChart = false;
@@ -883,7 +879,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               });
             },
             icon: const Icon(Icons.view_agenda_outlined, size: 18),
-            label: const Text('전체보기'),
+            label: Text(AppStrings.viewAll),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.accent,
               textStyle: const TextStyle(fontWeight: FontWeight.w800),
@@ -945,7 +941,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                       fontSize: 18, fontWeight: FontWeight.w900)),
               const Spacer(),
               Text(
-                '이동/확대',
+                AppStrings.moveZoom,
                 style: TextStyle(
                     color: AppColors.accent.withOpacity(0.95),
                     fontWeight: FontWeight.w900),
@@ -959,7 +955,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             children: [
               _smallChip(
                 selected: _showStandard,
-                label: const Text('표준선'),
+                label: Text(AppStrings.stdLine),
                 activeColor: AppColors.accent,
                 onSelected: (v) {
                   setState(() {
@@ -970,7 +966,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               ),
               _smallChip(
                 selected: _showChild,
-                label: const Text('아이 데이터'),
+                label: Text(AppStrings.childData),
                 activeColor: AppColors.accent,
                 onSelected: (v) {
                   setState(() {
@@ -1096,7 +1092,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                       top: 10,
                                       child: _CenterBadge(
                                         text:
-                                            '중심  X=${_fmtX(cx)}개월   Y=${_fmtY(kind, cy)}${unit.isEmpty ? '' : ' $unit'}',
+                                            AppStrings.centerBadge(_fmtX(cx), _fmtY(kind, cy), unit),
                                         accent: AppColors.accent,
                                       ),
                                     ),
@@ -1136,7 +1132,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           ),
           const SizedBox(height: 10),
           Text(
-            '드래그로 이동 / 핀치 또는 버튼으로 확대·축소',
+            AppStrings.moveZoomHint,
             style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55)),
           ),
         ],
@@ -1147,8 +1143,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
   @override
   Widget build(BuildContext context) {
     final title = _selected == null
-        ? '${widget.childName}(${_sex.label}) 성장 그래프'
-        : '${widget.childName}(${_sex.label})';
+        ? AppStrings.chartTitle(widget.childName, _sex.label)
+        : AppStrings.chartTitleShort(widget.childName, _sex.label);
 
     return Scaffold(
       bottomNavigationBar: const _GraphPageBanner(),
@@ -1157,7 +1153,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         title: Text(title),
         actions: [
           IconButton(
-            tooltip: '새로고침',
+            tooltip: AppStrings.refresh,
             onPressed: () async {
               await _loadEntries();
               await _loadStandard();
@@ -1172,7 +1168,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       body: _entries.isEmpty
           ? Center(
               child: Text(
-                '데이터가 없습니다.\n먼저 “성장 데이터 입력”을 해주세요.',
+                AppStrings.chartNoData,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black.withOpacity(0.65)),
               ),
@@ -1189,7 +1185,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                         border: Border.all(color: AppColors.accent.withOpacity(0.10)),
                       ),
                       child: Text(
-                        '표준선(백분위) 위에 아이 데이터가 겹쳐집니다.\n그래프를 터치하면 단일 그래프로 전환됩니다.',
+                        AppStrings.chartHint,
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.3,
@@ -1301,7 +1297,7 @@ class _ZoomBar extends StatelessWidget {
         Expanded(
           child: _btn(
             icon: Icons.remove,
-            text: '축소',
+            text: AppStrings.zoomOut,
             onTap: onZoomOut,
           ),
         ),
@@ -1309,7 +1305,7 @@ class _ZoomBar extends StatelessWidget {
         Expanded(
           child: _btn(
             icon: Icons.add,
-            text: '확대',
+            text: AppStrings.zoomIn,
             onTap: onZoomIn,
           ),
         ),
@@ -1317,7 +1313,7 @@ class _ZoomBar extends StatelessWidget {
         Expanded(
           child: _btn(
             icon: Icons.center_focus_strong,
-            text: '리셋',
+            text: AppStrings.reset,
             onTap: onReset,
           ),
         ),
@@ -1515,7 +1511,7 @@ class _FixedXAxis extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  '개월',
+                  AppStrings.monthUnit,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,

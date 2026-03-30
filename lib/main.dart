@@ -10,9 +10,13 @@ import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'page_main.dart';
 import 'ad_service.dart';
 import 'app_colors.dart';
+import 'app_strings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 언어 오버라이드(dev 히든키) 초기화 — runApp() 전에 완료해야 isKo가 정확히 동작
+  await AppStrings.init();
 
   // 광고 SDK 초기화를 백그라운드에서 시작 — UI 렌더링을 블로킹하지 않음
   unawaited(_initAds());
@@ -78,7 +82,7 @@ class GrowthApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '우리아이 성장 그래프',
+      title: AppStrings.appTitle,
       debugShowCheckedModeBanner: false,
       theme: _theme,
       home: MainPage(),

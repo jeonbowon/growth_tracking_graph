@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'app_strings.dart';
 
 class BackupManager {
   static const String kKeyChildProfiles = 'childProfiles';
@@ -98,8 +98,8 @@ class BackupManager {
 
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/json', name: fileName)],
-      subject: '우리아이 성장 그래프 백업 ($fileName)',
-      text: '백업 파일입니다. Drive/다운로드 등에 저장해 두세요.',
+      subject: '${AppStrings.backupSubject}$fileName)',
+      text: AppStrings.backupShareText,
     );
 
   }
@@ -133,16 +133,16 @@ class BackupManager {
     try {
       decoded = jsonDecode(text);
     } on FormatException {
-      throw Exception('백업 파일이 올바른 JSON 형식이 아닙니다. 파일이 손상되었을 수 있습니다.');
+      throw Exception(AppStrings.backupInvalidJson);
     }
 
     if (decoded is! Map) {
-      throw Exception('백업 파일 형식이 올바르지 않습니다(최상위가 JSON 객체가 아님).');
+      throw Exception(AppStrings.backupInvalidFormat);
     }
 
     final schema = decoded['schema'];
     if (schema != 1 && schema != 2) {
-      throw Exception('지원하지 않는 백업 스키마입니다: $schema');
+      throw Exception(AppStrings.backupUnsupportedSchema(schema));
     }
 
     final profiles = decoded['childProfiles'];
@@ -150,11 +150,11 @@ class BackupManager {
     final growthById = decoded['growthByChildId'];
 
     if (profiles is! List) {
-      throw Exception('백업 파일에 childProfiles가 없습니다.');
+      throw Exception(AppStrings.backupNoProfiles);
     }
     // schema=1은 name 기반만 존재, schema=2는 id 기반이 존재할 수 있음
     if (schema == 1 && growthByName is! Map) {
-      throw Exception('백업 파일에 growthByChildName이 없습니다.');
+      throw Exception(AppStrings.backupNoGrowthData);
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -204,7 +204,7 @@ class BackupManager {
     // 완료 안내
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('복원이 완료되었습니다.')),
+        SnackBar(content: Text(AppStrings.backupRestored)),
       );
 
     }

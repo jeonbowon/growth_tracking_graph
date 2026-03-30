@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 import 'child_profile.dart';
+import 'app_strings.dart';
 
 class PageProfileInput extends StatefulWidget {
   final VoidCallback? onProfileSaved;
@@ -28,12 +29,12 @@ class _PageProfileInputState extends State<PageProfileInput> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('알림'),
+        title: Text(AppStrings.alertTitle),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
+            child: Text(AppStrings.confirm),
           ),
         ],
       ),
@@ -43,7 +44,7 @@ class _PageProfileInputState extends State<PageProfileInput> {
   Future<void> _saveProfile() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      _showError('이름을 입력해주세요.');
+      _showError(AppStrings.nameRequired);
       return;
     }
 
@@ -55,7 +56,7 @@ class _PageProfileInputState extends State<PageProfileInput> {
       // ✅ 이름 중복 확인
       final existing = profileList.any((p) => p['name'] == name);
       if (existing) {
-        _showError('이미 동일한 이름의 프로필이 존재합니다.');
+        _showError(AppStrings.nameDuplicate);
         return;
       }
 
@@ -76,7 +77,7 @@ class _PageProfileInputState extends State<PageProfileInput> {
       });
     } catch (e) {
       if (!mounted) return;
-      _showError('저장 중 오류 발생: $e');
+      _showError('${AppStrings.saveError}$e');
     }
   }
 
@@ -97,7 +98,7 @@ class _PageProfileInputState extends State<PageProfileInput> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('아이 정보 입력'),
+      title: Text(AppStrings.profileInputTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -105,17 +106,17 @@ class _PageProfileInputState extends State<PageProfileInput> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: '성명'),
+              decoration: InputDecoration(labelText: AppStrings.labelName),
             ),
             const SizedBox(height: 20),
-            Text('생년월일: ${_selectedDate.toLocal().toIso8601String().split("T")[0]}'),
+            Text('${AppStrings.labelBirthDate}${_selectedDate.toLocal().toIso8601String().split("T")[0]}'),
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _selectDate,
-              child: const Text('생년월일 선택'),
+              child: Text(AppStrings.selectBirthDate),
             ),
             const SizedBox(height: 20),
-            const Text('성별'),
+            Text(AppStrings.labelGender),
             Row(
               children: [
                 Radio<String>(
@@ -123,13 +124,13 @@ class _PageProfileInputState extends State<PageProfileInput> {
                   groupValue: _selectedGender,
                   onChanged: (value) => setState(() => _selectedGender = value!),
                 ),
-                const Text('남아'),
+                Text(AppStrings.genderBoy),
                 Radio<String>(
                   value: '여아',
                   groupValue: _selectedGender,
                   onChanged: (value) => setState(() => _selectedGender = value!),
                 ),
-                const Text('여아'),
+                Text(AppStrings.genderGirl),
               ],
             ),
           ],
@@ -138,11 +139,11 @@ class _PageProfileInputState extends State<PageProfileInput> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('취소'),
+          child: Text(AppStrings.cancel),
         ),
         ElevatedButton(
           onPressed: _saveProfile,
-          child: const Text('확인'),
+          child: Text(AppStrings.confirm),
         ),
       ],
     );
