@@ -4,11 +4,13 @@ import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'dart:math' as math;
 
+import 'ad_service.dart';
 import 'growth_entry.dart';
 import 'child_profile.dart';
 import 'app_colors.dart';
@@ -1560,6 +1562,9 @@ class _GraphPageBannerState extends State<_GraphPageBanner> {
   BannerAd? _banner;
   bool _loaded = false;
   bool _adRequested = false;
+  bool _admobFailed = false;
+
+  static const String _metaBannerPlacementId = '939805188640197_939805755306807';
 
   String get _adUnitId {
     if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/7813119098';
@@ -1579,6 +1584,10 @@ class _GraphPageBannerState extends State<_GraphPageBanner> {
   Future<void> _loadBanner() async {
     final unitId = _adUnitId;
     if (unitId.isEmpty) return;
+
+    await AdService.adsReady;
+
+    if (!mounted) return;
 
     final width = MediaQuery.of(context).size.width.truncate();
     final adSize =
@@ -1602,6 +1611,7 @@ class _GraphPageBannerState extends State<_GraphPageBanner> {
           setState(() {
             _banner = null;
             _loaded = false;
+            _admobFailed = true;
           });
         },
       ),
@@ -1622,6 +1632,21 @@ class _GraphPageBannerState extends State<_GraphPageBanner> {
 
   @override
   Widget build(BuildContext context) {
+    if (_admobFailed) {
+      return SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 50.0,
+          child: FacebookBannerAd(
+            placementId: _metaBannerPlacementId,
+            bannerSize: BannerSize.STANDARD,
+            listener: (result, value) {},
+          ),
+        ),
+      );
+    }
+
     if (!_loaded || _banner == null) return const SizedBox.shrink();
 
     final ad = _banner!;

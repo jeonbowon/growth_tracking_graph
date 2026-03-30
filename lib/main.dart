@@ -24,7 +24,7 @@ Future<void> main() async {
   runApp(GrowthApp());
 }
 
-/// Google Ads + Meta Ads를 병렬로 초기화한 뒤 전면광고를 사전 로드합니다.
+/// Google Ads + Meta Ads를 초기화한 뒤 전면광고를 사전 로드합니다.
 Future<void> _initAds() async {
   try {
     await MobileAds.instance.initialize();
@@ -36,29 +36,26 @@ Future<void> _initAds() async {
         ],
       ),
     );
-    AdService.markAdsReady();
-  } finally {
-    AdService.markAdsReady();
+  } catch (_) {
+    // AdMob 초기화 실패해도 계속 진행
   }
 
-  // Meta는 배너와 무관하므로 별도 비동기 실행 (배너 로드를 블로킹하지 않음)
-  unawaited(_initFacebook());
+  try {
+    // Facebook SDK 초기화 완료 후 adsReady 신호 → 배너도 이 시점부터 안전
+    await _initFacebook();
+  } catch (_) {
+    // Facebook 초기화 실패해도 adsReady는 반드시 완료
+  }
 
+  AdService.markAdsReady();
   AdService.instance.preloadInterstitial();
 }
 
-/// Meta SDK를 초기화한 뒤, 두 개발 기기를 모두 테스트 기기로 등록합니다.
-///
-/// init()을 두 번 호출하면 두 번째 호출이 SDK를 재초기화하면서
-/// 첫 번째 기기 등록이 리셋되는 문제가 있습니다.
-/// 따라서 init()은 한 번만 호출하고, 이후 addTestDevice()를
-/// 네이티브 채널로 직접 호출해 두 기기를 모두 등록합니다.
 Future<void> _initFacebook() async {
   await FacebookAudienceNetwork.init();
 
   const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/ad_settings');
   await channel.invokeMethod('addTestDevice', {'testingId': 'c450a4b5-80b4-4105-9f72-360a5eac84a4'});
-  await channel.invokeMethod('addTestDevice', {'testingId': '8a288edb-23e9-476c-a9e5-ea60b8c31e7c'});
 }
 
 class GrowthApp extends StatelessWidget {

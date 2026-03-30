@@ -43,6 +43,8 @@ class _CommonBannerState extends State<CommonBanner> {
     final unitId = _adUnitId;
     if (unitId.isEmpty) return;
 
+    await AdService.adsReady;
+
     if (!mounted) return;
 
     final width = MediaQuery.of(context).size.width.truncate();
