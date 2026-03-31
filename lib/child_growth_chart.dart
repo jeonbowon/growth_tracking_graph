@@ -795,7 +795,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w800)),
+                        fontSize: 16, fontWeight: FontWeight.w500)),
                 if (unit.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Text('($unit)',
@@ -884,7 +884,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             label: Text(AppStrings.viewAll),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.accent,
-              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              textStyle: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -1149,8 +1149,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         : AppStrings.chartTitleShort(widget.childName, _sex.label);
 
     return Scaffold(
-      bottomNavigationBar: const _GraphPageBanner(),
-            backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(title),
         actions: [
@@ -1216,7 +1215,6 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                           16,
                           16,
                           16,
-                          // ✅ 하단 시스템 영역(제스처 바/네비 바) + 약간의 여유
                           (MediaQuery.of(context).padding.bottom + 18).clamp(18.0, 80.0),
                         ),
                         child: _selectedChartCard(_selected!),
@@ -1430,7 +1428,7 @@ class _FixedYAxis extends StatelessWidget {
           style: TextStyle(
             fontSize: 9,
             color: Colors.black.withOpacity(0.82),
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w500,
           ),
         );
 
@@ -1516,7 +1514,7 @@ class _FixedXAxis extends StatelessWidget {
                   AppStrings.monthUnit,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w500,
                     color: Colors.black.withOpacity(0.85),
                   ),
                 ),
@@ -1541,122 +1539,6 @@ class _FixedXAxis extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-
-// ─────────────────────────────────────────────────────────────
-// 그래프 페이지 전용 배너 광고 (이 페이지에서만 생성/표시)
-// - BannerAd를 공유하지 않기 때문에 "AdWidget already in the Widget tree" 오류가 나지 않습니다.
-// - 테스트 광고 단위 ID를 사용했습니다. 출시 전 AdMob에서 만든 "배너 광고 단위 ID"로 교체하세요.
-// ─────────────────────────────────────────────────────────────
-class _GraphPageBanner extends StatefulWidget {
-  const _GraphPageBanner({super.key});
-
-  @override
-  State<_GraphPageBanner> createState() => _GraphPageBannerState();
-}
-
-class _GraphPageBannerState extends State<_GraphPageBanner> {
-  BannerAd? _banner;
-  bool _loaded = false;
-  bool _adRequested = false;
-  bool _admobFailed = false;
-
-  static const String _metaBannerPlacementId = '939805188640197_939805755306807';
-
-  String get _adUnitId {
-    if (Platform.isAndroid) return 'ca-app-pub-3852398620139102/7813119098';
-    if (Platform.isIOS) return 'ca-app-pub-3940256099942544/2934735716';
-    return '';
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_adRequested) {
-      _adRequested = true;
-      _loadBanner();
-    }
-  }
-
-  Future<void> _loadBanner() async {
-    final unitId = _adUnitId;
-    if (unitId.isEmpty) return;
-
-    await AdService.adsReady;
-
-    if (!mounted) return;
-
-    final width = MediaQuery.of(context).size.width.truncate();
-    final adSize =
-        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width) ??
-            AdSize.banner;
-
-    if (!mounted) return;
-
-    final banner = BannerAd(
-      adUnitId: unitId,
-      size: adSize,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          if (!mounted) return;
-          setState(() => _loaded = true);
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          if (!mounted) return;
-          setState(() {
-            _banner = null;
-            _loaded = false;
-            _admobFailed = true;
-          });
-        },
-      ),
-    )..load();
-
-    if (!mounted) {
-      banner.dispose();
-      return;
-    }
-    setState(() => _banner = banner);
-  }
-
-  @override
-  void dispose() {
-    _banner?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_admobFailed) {
-      return SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 50.0,
-          child: FacebookBannerAd(
-            placementId: _metaBannerPlacementId,
-            bannerSize: BannerSize.STANDARD,
-            listener: (result, value) {},
-          ),
-        ),
-      );
-    }
-
-    if (!_loaded || _banner == null) return const SizedBox.shrink();
-
-    final ad = _banner!;
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        width: double.infinity,
-        height: ad.size.height.toDouble(),
-        child: AdWidget(ad: ad),
-      ),
     );
   }
 }

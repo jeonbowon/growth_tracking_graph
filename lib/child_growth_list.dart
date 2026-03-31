@@ -150,10 +150,11 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     final bmiController = TextEditingController(text: e.bmi?.toString() ?? '');
     final ageController = TextEditingController(text: e.ageMonths.toString());
 
-    try {
-    await showDialog(
+    GrowthEntry? result;
+
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Text(AppStrings.editRecord),
         content: SingleChildScrollView(
           child: Column(
@@ -194,19 +195,19 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: Text(AppStrings.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
-            onPressed: () async {
+            onPressed: () {
               final newAge = int.tryParse(ageController.text.trim()) ?? e.ageMonths;
               final newH = _parsePositiveDoubleAllowNull(heightController.text);
               final newW = _parsePositiveDoubleAllowNull(weightController.text);
 
               // 둘 다 비면 저장 불가 (입력 화면과 동일 정책)
               if (newH == null && newW == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogCtx).showSnackBar(
                   SnackBar(content: Text(AppStrings.heightOrWeightRequiredEdit)),
                 );
                 return;
@@ -223,31 +224,39 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                 newBmi = _calcBmiIfPossible(newH, newW);
               }
 
-              setState(() {
-                entries[index] = GrowthEntry(
-                  height: newH,
-                  weight: newW,
-                  bmi: newBmi,
-                  ageMonths: newAge,
-                  date: e.date,
-                );
-                entries.sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
-              });
-
-              await _saveEntries();
-              if (mounted) Navigator.pop(context);
+              // 결과를 외부 변수에 담고 닫기만 함 (setState는 showDialog 완료 후 처리)
+              result = GrowthEntry(
+                height: newH,
+                weight: newW,
+                bmi: newBmi,
+                ageMonths: newAge,
+                date: e.date,
+              );
+              Navigator.pop(dialogCtx);
             },
             child: Text(AppStrings.save, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-    } finally {
-      heightController.dispose();
-      weightController.dispose();
-      bmiController.dispose();
-      ageController.dispose();
+
+    // showDialog 완료 후 setState (다이얼로그 트리에서 제거됨)
+    final saved = result;
+    if (saved != null && mounted) {
+      setState(() {
+        entries[index] = saved;
+        entries.sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+      });
+      await _saveEntries();
     }
+
+    // controller는 _saveEntries 완료 후 dispose
+    // → showDialog resolve 시점에 exit animation이 아직 진행 중일 수 있으므로
+    //   animation이 끝난 뒤(~150ms) dispose해야 TextField가 disposed controller를 참조하지 않음
+    heightController.dispose();
+    weightController.dispose();
+    bmiController.dispose();
+    ageController.dispose();
   }
 
   @override
@@ -321,7 +330,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                   AppStrings.entryDateAge(e.date, e.ageMonths),
                                   style: const TextStyle(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 6),

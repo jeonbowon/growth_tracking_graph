@@ -53,7 +53,7 @@ class AdService {
   Completer<void>? _metaInterstitialCompleter;
 
   // Kakao AdFit 전면광고
-  static const String _kakaoInterstitialUnitId = 'DAN-G4BSPeugjETut5Zb';
+  static const String _kakaoInterstitialUnitId = 'DAN-BwaG2Mi7gZwALYfq';
   bool _isKakaoInterstitialLoaded = false;
   bool _isKakaoInterstitialLoading = false;
 
