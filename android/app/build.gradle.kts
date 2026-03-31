@@ -91,4 +91,5 @@ flutter {
 
 dependencies {
     implementation("com.facebook.android:audience-network-sdk:6.+")
+    implementation("com.kakao.adfit:ads-base:3.21.17")
 }

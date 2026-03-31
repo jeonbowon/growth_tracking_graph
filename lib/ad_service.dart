@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// 앱 전체 광고 서비스
@@ -29,6 +30,12 @@ class AdService {
   bool _isBannerLoaded = false;
   bool _isMetaBannerFallback = false;
 
+  // Kakao AdFit 배너
+  static const String kakaoBannerUnitId = 'DAN-n4HBHJI8uUgHQqIl';
+  bool _isKakaoBannerLoaded = false;
+  bool _isKakaoBannerLoading = false;
+  bool _isKakaoBannerFallback = false;
+
   Timer? _bannerRetryTimer;
   int _bannerRetryAttempt = 0;
 
@@ -45,6 +52,11 @@ class AdService {
   bool _isMetaInterstitialLoading = false;
   Completer<void>? _metaInterstitialCompleter;
 
+  // Kakao AdFit 전면광고
+  static const String _kakaoInterstitialUnitId = 'DAN-G4BSPeugjETut5Zb';
+  bool _isKakaoInterstitialLoaded = false;
+  bool _isKakaoInterstitialLoading = false;
+
   DateTime? _lastInterstitialShownAt;
   final DateTime _serviceStartedAt = DateTime.now();
 
@@ -59,6 +71,12 @@ class AdService {
 
   /// AdMob 배너 로드 실패 시 Meta 배너를 대신 표시해야 하는지 여부
   bool get isMetaBannerFallback => _isMetaBannerFallback;
+
+  /// Kakao AdFit 배너를 표시해야 하는지 여부
+  bool get isKakaoBannerFallback => _isKakaoBannerFallback;
+
+  /// Kakao AdFit 배너 로드 성공 여부
+  bool get isKakaoBannerLoaded => _isKakaoBannerLoaded;
 
   static const String metaBannerPlacementId = '939805188640197_939805755306807';
   static const String _metaInterstitialPlacementId = '939805188640197_939805748640141';
@@ -103,6 +121,7 @@ class AdService {
           _isMetaBannerFallback = true;
           _notifyBannerChanged();
           _scheduleBannerRetry();
+          _loadKakaoBannerIfNeeded();
         },
       ),
     )..load();
@@ -110,6 +129,30 @@ class AdService {
 
   void _notifyBannerChanged() {
     _bannerRevision.value++;
+  }
+
+  Future<void> _loadKakaoBannerIfNeeded() async {
+    if (_isDisposed) return;
+    if (_isKakaoBannerLoaded || _isKakaoBannerLoading) return;
+
+    _isKakaoBannerLoading = true;
+    try {
+      const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/adfit');
+      final result = await channel.invokeMethod<String>('loadBanner', kakaoBannerUnitId);
+      if (_isDisposed) return;
+      if (result == 'loaded') {
+        _isKakaoBannerLoaded = true;
+        _isKakaoBannerFallback = true;
+        _notifyBannerChanged();
+      } else {
+        _isKakaoBannerLoaded = false;
+        _scheduleBannerRetry();
+      }
+    } catch (_) {
+      _isKakaoBannerLoaded = false;
+    } finally {
+      _isKakaoBannerLoading = false;
+    }
   }
 
   void _scheduleBannerRetry() {
@@ -143,6 +186,7 @@ class AdService {
   void preloadInterstitial() {
     _loadInterstitialIfNeeded();
     _loadMetaInterstitialIfNeeded();
+    _loadKakaoInterstitialIfNeeded();
   }
 
   Future<void> _loadInterstitialIfNeeded() async {
@@ -224,8 +268,8 @@ class AdService {
             _isMetaInterstitialLoading = false;
             _metaInterstitialCompleter?.complete();
             _metaInterstitialCompleter = null;
-            // 30초 후 재시도
-            Timer(const Duration(seconds: 30), () {
+            // 5분 후 재시도
+            Timer(const Duration(minutes: 5), () {
               if (_isDisposed) return;
               _loadMetaInterstitialIfNeeded();
             });
@@ -235,6 +279,48 @@ class AdService {
         }
       },
     );
+  }
+
+  Future<void> _loadKakaoInterstitialIfNeeded() async {
+    if (_isDisposed) return;
+    if (_isKakaoInterstitialLoaded || _isKakaoInterstitialLoading) return;
+
+    _isKakaoInterstitialLoading = true;
+    try {
+      const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/adfit');
+      final result = await channel.invokeMethod<String>('loadInterstitial', _kakaoInterstitialUnitId);
+      if (_isDisposed) return;
+      _isKakaoInterstitialLoaded = result == 'loaded';
+    } catch (_) {
+      _isKakaoInterstitialLoaded = false;
+    } finally {
+      _isKakaoInterstitialLoading = false;
+    }
+
+    // 로드 실패 시 5분 후 재시도
+    if (!_isKakaoInterstitialLoaded && !_isDisposed) {
+      Timer(const Duration(minutes: 5), () {
+        if (_isDisposed) return;
+        _loadKakaoInterstitialIfNeeded();
+      });
+    }
+  }
+
+  Future<void> _showKakaoInterstitial() async {
+    if (!_isKakaoInterstitialLoaded) return;
+    _isKakaoInterstitialLoaded = false;
+    try {
+      const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/adfit');
+      await channel.invokeMethod<String>('showInterstitial').timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => 'dismissed',
+      );
+      _lastInterstitialShownAt = DateTime.now();
+    } catch (_) {
+      // ignore
+    } finally {
+      if (!_isDisposed) _loadKakaoInterstitialIfNeeded();
+    }
   }
 
   bool _canShowInterstitialNow() {
@@ -266,8 +352,10 @@ class AdService {
     final ad = _interstitialAd;
 
     if (ad == null) {
-      // AdMob 전면광고 없으면 Meta 전면광고 fallback
-      if (_isMetaInterstitialLoaded) {
+      // AdMob 전면광고 없으면 Kakao → Meta 순서로 fallback
+      if (_isKakaoInterstitialLoaded) {
+        await _showKakaoInterstitial();
+      } else if (_isMetaInterstitialLoaded) {
         _metaInterstitialCompleter = Completer<void>();
         try {
           FacebookInterstitialAd.showInterstitialAd();
@@ -279,6 +367,7 @@ class AdService {
           _loadMetaInterstitialIfNeeded();
         }
       } else {
+        _loadKakaoInterstitialIfNeeded();
         _loadMetaInterstitialIfNeeded();
       }
       return;
@@ -325,6 +414,10 @@ class AdService {
     _bannerRetryAttempt = 0;
     _notifyBannerChanged();
 
+    _isKakaoBannerLoaded = false;
+    _isKakaoBannerLoading = false;
+    _isKakaoBannerFallback = false;
+
     _interstitialRetryTimer?.cancel();
     _interstitialRetryTimer = null;
     _interstitialAd?.dispose();
@@ -335,5 +428,12 @@ class AdService {
     _isMetaInterstitialLoading = false;
     _metaInterstitialCompleter?.complete();
     _metaInterstitialCompleter = null;
+
+    _isKakaoInterstitialLoaded = false;
+    _isKakaoInterstitialLoading = false;
+
+    const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/adfit');
+    channel.invokeMethod<void>('destroyBanner');
+    channel.invokeMethod<void>('destroyInterstitial');
   }
 }
