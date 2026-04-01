@@ -26,6 +26,9 @@ Future<void> main() async {
 
 /// Google Ads + Meta Ads를 초기화한 뒤 전면광고를 사전 로드합니다.
 Future<void> _initAds() async {
+  // 캐시된 광고 순서 설정을 먼저 읽어 적용 (로컬 디스크, 수 ms 이내)
+  await AdService.instance.loadCachedConfig();
+
   try {
     await MobileAds.instance.initialize();
     MobileAds.instance.updateRequestConfiguration(
@@ -49,6 +52,9 @@ Future<void> _initAds() async {
 
   AdService.markAdsReady();
   AdService.instance.preloadInterstitial();
+
+  // 백그라운드에서 최신 설정 fetch → SharedPreferences에 저장 → 다음 앱 시작에 적용
+  unawaited(AdService.instance.fetchAndCacheConfig());
 }
 
 Future<void> _initFacebook() async {

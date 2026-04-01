@@ -48,37 +48,36 @@ class _CommonBannerState extends State<CommonBanner> {
           );
         }
 
-        // Kakao AdFit 로드 성공 (Android 전용 AndroidView)
-        if (service.isKakaoBannerFallback &&
-            service.isKakaoBannerLoaded &&
-            Platform.isAndroid) {
-          return const SafeArea(
-            top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: bannerHeight,
-              child: AndroidView(viewType: 'adfit_banner'),
-            ),
-          );
-        }
-
-        // Meta 배너 폴백 (Kakao 로드 전 또는 Kakao 실패)
-        if (service.isMetaBannerFallback && !service.isKakaoBannerFallback) {
-          return SafeArea(
-            top: false,
-            child: SizedBox(
-              width: double.infinity,
-              height: bannerHeight,
-              child: FacebookBannerAd(
-                placementId: AdService.metaBannerPlacementId,
-                bannerSize: BannerSize.STANDARD,
-                listener: (result, value) {},
+        // AdMob 실패 후 순서에 따라 표시
+        final fallbackOrder = service.bannerOrder.where((n) => n != 'admob').toList();
+        for (final network in fallbackOrder) {
+          if (network == 'kakao' && service.isKakaoBannerFallback && service.isKakaoBannerLoaded && Platform.isAndroid) {
+            return const SafeArea(
+              top: false,
+              child: SizedBox(
+                width: double.infinity,
+                height: bannerHeight,
+                child: AndroidView(viewType: 'adfit_banner'),
               ),
-            ),
-          );
+            );
+          }
+          if (network == 'meta' && service.isMetaBannerFallback && !service.isKakaoBannerFallback) {
+            return SafeArea(
+              top: false,
+              child: SizedBox(
+                width: double.infinity,
+                height: bannerHeight,
+                child: FacebookBannerAd(
+                  placementId: AdService.metaBannerPlacementId,
+                  bannerSize: BannerSize.STANDARD,
+                  listener: (result, value) {},
+                ),
+              ),
+            );
+          }
         }
 
-        // 로드 대기 중 또는 모두 실패
+        // 모두 실패 또는 로드 대기
         return const SafeArea(
           top: false,
           child: SizedBox(width: double.infinity, height: bannerHeight),

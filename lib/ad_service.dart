@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:facebook_audience_network/facebook_audience_network.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 앱 전체 광고 서비스
 ///
@@ -24,6 +26,10 @@ class AdService {
   }
 
   bool _isDisposed = false;
+
+  // 광고 네트워크 순서 (기본값: admob → kakao → meta)
+  List<String> _bannerOrder = ['admob', 'kakao', 'meta'];
+  List<String> _interstitialOrder = ['admob', 'kakao', 'meta'];
 
   // AdMob 배너
   BannerAd? _bannerAd;
@@ -68,6 +74,7 @@ class AdService {
 
   bool get isBannerLoaded => _isBannerLoaded;
   BannerAd? get bannerAd => _bannerAd;
+  List<String> get bannerOrder => _bannerOrder;
 
   /// AdMob 배너 로드 실패 시 Meta 배너를 대신 표시해야 하는지 여부
   bool get isMetaBannerFallback => _isMetaBannerFallback;
@@ -121,7 +128,13 @@ class AdService {
           _isMetaBannerFallback = true;
           _notifyBannerChanged();
           _scheduleBannerRetry();
-          _loadKakaoBannerIfNeeded();
+          // 순서에 따라 다음 네트워크 로드
+          final next = _getNextBannerNetwork('admob');
+          if (next == 'meta') {
+            // Meta는 CommonBanner 위젯에서 isMetaBannerFallback 플래그로 표시되므로 별도 로드 불필요
+          } else if (next == 'kakao') {
+            _loadKakaoBannerIfNeeded();
+          }
         },
       ),
     )..load();
@@ -352,24 +365,27 @@ class AdService {
     final ad = _interstitialAd;
 
     if (ad == null) {
-      // AdMob 전면광고 없으면 Kakao → Meta 순서로 fallback
-      if (_isKakaoInterstitialLoaded) {
-        await _showKakaoInterstitial();
-      } else if (_isMetaInterstitialLoaded) {
-        _metaInterstitialCompleter = Completer<void>();
-        try {
-          FacebookInterstitialAd.showInterstitialAd();
-          await _metaInterstitialCompleter!.future;
-        } catch (_) {
-          _isMetaInterstitialLoaded = false;
-          _metaInterstitialCompleter?.complete();
-          _metaInterstitialCompleter = null;
-          _loadMetaInterstitialIfNeeded();
+      final networks = _interstitialOrder.where((n) => n != 'admob').toList();
+      for (final network in networks) {
+        if (network == 'kakao' && _isKakaoInterstitialLoaded) {
+          await _showKakaoInterstitial();
+          return;
+        } else if (network == 'meta' && _isMetaInterstitialLoaded) {
+          _metaInterstitialCompleter = Completer<void>();
+          try {
+            FacebookInterstitialAd.showInterstitialAd();
+            await _metaInterstitialCompleter!.future;
+          } catch (_) {
+            _isMetaInterstitialLoaded = false;
+            _metaInterstitialCompleter?.complete();
+            _metaInterstitialCompleter = null;
+            _loadMetaInterstitialIfNeeded();
+          }
+          return;
         }
-      } else {
-        _loadKakaoInterstitialIfNeeded();
-        _loadMetaInterstitialIfNeeded();
       }
+      _loadKakaoInterstitialIfNeeded();
+      _loadMetaInterstitialIfNeeded();
       return;
     }
 
@@ -400,6 +416,66 @@ class AdService {
       } catch (_) {}
       _interstitialAd = null;
       _loadInterstitialIfNeeded();
+    }
+  }
+
+  // 현재 네트워크 다음 순서의 네트워크를 반환
+  String? _getNextBannerNetwork(String current) {
+    final idx = _bannerOrder.indexOf(current);
+    if (idx == -1 || idx + 1 >= _bannerOrder.length) return null;
+    return _bannerOrder[idx + 1];
+  }
+
+  String? _getNextInterstitialNetwork(String current) {
+    final idx = _interstitialOrder.indexOf(current);
+    if (idx == -1 || idx + 1 >= _interstitialOrder.length) return null;
+    return _interstitialOrder[idx + 1];
+  }
+
+  static const String _prefKeyBannerOrder = 'ad_config_banner_order';
+  static const String _prefKeyInterstitialOrder = 'ad_config_interstitial_order';
+
+  /// 앱 시작 시 SharedPreferences에서 캐시된 설정을 즉시 로드.
+  /// markAdsReady() 전에 await 해야 race condition이 없음.
+  Future<void> loadCachedConfig() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final banner = prefs.getStringList(_prefKeyBannerOrder);
+      final interstitial = prefs.getStringList(_prefKeyInterstitialOrder);
+      if (banner != null && banner.isNotEmpty) _bannerOrder = banner;
+      if (interstitial != null && interstitial.isNotEmpty) _interstitialOrder = interstitial;
+    } catch (_) {
+      // 실패 시 기본값 유지
+    }
+  }
+
+  /// 서버에서 최신 설정을 가져와 캐시에 저장. 다음 앱 시작부터 적용됨.
+  /// markAdsReady() 이후 unawaited로 호출.
+  Future<void> fetchAndCacheConfig() async {
+    try {
+      final uri = Uri.parse('https://tnb-soft.com/config/growth_tracker.json');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      final request = await client.getUrl(uri);
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final banner = json['ad_banner_order'];
+        final interstitial = json['ad_interstitial_order'];
+        final prefs = await SharedPreferences.getInstance();
+        if (banner is List) {
+          final list = banner.map((e) => e.toString()).toList();
+          await prefs.setStringList(_prefKeyBannerOrder, list);
+        }
+        if (interstitial is List) {
+          final list = interstitial.map((e) => e.toString()).toList();
+          await prefs.setStringList(_prefKeyInterstitialOrder, list);
+        }
+      }
+      client.close();
+    } catch (_) {
+      // 실패 시 기존 캐시값 유지
     }
   }
 
