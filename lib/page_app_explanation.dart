@@ -113,15 +113,10 @@ class _PageAppExplanationState extends State<PageAppExplanation> {
 
               _sectionTitle(AppStrings.expSec5Title),
               _bodyText(AppStrings.expSec5Body),
-              _bodyText(AppStrings.expSec5Body2),
 
               _sectionTitle(AppStrings.expSec6Title),
               _bodyText(AppStrings.expSec6Body1),
               _bodyText(AppStrings.expSec6Body2),
-
-              _sectionTitle(AppStrings.expSec7Title),
-              _bodyText(AppStrings.expSec7Body1),
-              _bodyText(AppStrings.expSec7Body2),
 
               const SizedBox(height: 30),
             ],

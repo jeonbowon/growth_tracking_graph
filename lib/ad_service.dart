@@ -266,10 +266,12 @@ class AdService {
         if (_isDisposed) return;
         switch (result) {
           case InterstitialAdResult.LOADED:
+            debugPrint('[Meta] 전면광고 로드 성공');
             _isMetaInterstitialLoaded = true;
             _isMetaInterstitialLoading = false;
             break;
           case InterstitialAdResult.DISMISSED:
+            debugPrint('[Meta] 전면광고 닫힘');
             _isMetaInterstitialLoaded = false;
             _lastInterstitialShownAt = DateTime.now();
             _metaInterstitialCompleter?.complete();
@@ -277,13 +279,15 @@ class AdService {
             _loadMetaInterstitialIfNeeded();
             break;
           case InterstitialAdResult.ERROR:
+            debugPrint('[Meta] 전면광고 로드 실패 — code=${value?['error_code']} msg=${value?['error_message']}');
             _isMetaInterstitialLoaded = false;
-            _isMetaInterstitialLoading = false;
+            _isMetaInterstitialLoading = true; // 쿨다운 동안 재시도 차단
             _metaInterstitialCompleter?.complete();
             _metaInterstitialCompleter = null;
             // 5분 후 재시도
             Timer(const Duration(minutes: 5), () {
               if (_isDisposed) return;
+              _isMetaInterstitialLoading = false;
               _loadMetaInterstitialIfNeeded();
             });
             break;
@@ -426,10 +430,14 @@ class AdService {
     return _bannerOrder[idx + 1];
   }
 
-  String? _getNextInterstitialNetwork(String current) {
-    final idx = _interstitialOrder.indexOf(current);
-    if (idx == -1 || idx + 1 >= _interstitialOrder.length) return null;
-    return _interstitialOrder[idx + 1];
+  /// Meta 배너 위젯 로드 실패 시 호출.
+  /// 순서상 Meta 다음에 Kakao가 있으면 Kakao 배너 로드를 시작한다.
+  void onMetaBannerFailed() {
+    final metaIdx = _bannerOrder.indexOf('meta');
+    final kakaoIdx = _bannerOrder.indexOf('kakao');
+    if (metaIdx != -1 && kakaoIdx != -1 && kakaoIdx > metaIdx) {
+      _loadKakaoBannerIfNeeded();
+    }
   }
 
   static const String _prefKeyBannerOrder = 'ad_config_banner_order';

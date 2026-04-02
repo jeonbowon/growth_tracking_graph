@@ -321,34 +321,20 @@ class AppStrings {
           : 'Tap the upload (↑) icon at the top to save your data as a .json file.\nYou can store it in device storage, cloud, or messaging apps.';
   static String get expSec4Body2 =>
       isKo
-          ? '다운로드(↓) 아이콘을 누르면 이전에 저장해둔 백업 파일을 다시 불러올 수 있습니다.\n기기를 바꾸더라도 백업 파일이 있다면 데이터를 복원할 수 있습니다.'
-          : 'Tap the download (↓) icon to restore from a previously saved backup file.\nYou can restore your data even after changing devices.';
+          ? '다운로드(↓) 아이콘을 누르면 이전에 저장해둔 백업 파일을 다시 불러올 수 있습니다.\n카카오톡, 메일 등으로 전달받은 백업 파일은 먼저 휴대폰 내 파일 앱(또는 다운로드 폴더)에 저장한 뒤 불러오기를 진행하세요.\n기기를 바꾸더라도 백업 파일이 있다면 데이터를 복원할 수 있습니다.'
+          : 'Tap the download (↓) icon to restore from a previously saved backup file.\nIf you received a backup file via KakaoTalk, email, or similar, save it to your phone\'s Files app (or Downloads folder) first, then proceed with the restore.\nYou can restore your data even after changing devices.';
   static String get expSec5Title => isKo ? '5. 광고 안내' : '5. Ads';
   static String get expSec5Body =>
       isKo
           ? '무료 버전에서는 배너 광고와 전면 광고가 표시될 수 있습니다. 전면 광고는 저장·백업·복원 직후가 아니라, 주요 화면으로 이동하는 자연스러운 전환 시점에만 제한적으로 표시됩니다.'
           : 'The free version may show banner and interstitial ads. Interstitial ads appear only at natural screen transitions, never immediately after saving, backup, or restore.';
-  static String get expSec5Body2 =>
-      isKo
-          ? '광고 없이 사용하고 싶으신 경우 유료 구독을 통해 광고 제거 및 프로필 제한 해제가 가능합니다.'
-          : 'To use the app without ads, a paid subscription removes ads and unlocks unlimited profiles.';
   static String get expSec6Title =>
-      isKo ? '6. 무료 / 유료 버전 차이' : '6. Free vs Paid';
+      isKo ? '6. 개인정보 및 안전성' : '6. Privacy & Safety';
   static String get expSec6Body1 =>
-      isKo
-          ? '무료 버전\n• 배너 및 전면 광고가 표시됩니다\n• 데이터는 기기 내부에 저장'
-          : 'Free\n• Banner and interstitial ads\n• Data stored on device';
-  static String get expSec6Body2 =>
-      isKo
-          ? '유료 버전 (월 구독)\n• 프로필 등록 제한 없음\n• 광고 없음\n• 향후 클라우드 저장 기능 지원 예정'
-          : 'Paid (subscription)\n• Unlimited profiles\n• No ads\n• Cloud storage coming soon';
-  static String get expSec7Title =>
-      isKo ? '7. 개인정보 및 안전성' : '7. Privacy & Safety';
-  static String get expSec7Body1 =>
       isKo
           ? '이 앱은 아이의 건강 데이터를 소중하게 생각합니다.\n기본적으로 서버 전송 없이 로컬 저장을 원칙으로 합니다.'
           : 'This app values your child\'s health data.\nLocal storage only — no server transmission by default.';
-  static String get expSec7Body2 =>
+  static String get expSec6Body2 =>
       isKo
           ? '사용자의 동의 없이 개인 데이터를 외부로 전송하지 않습니다.'
           : 'Personal data is never transmitted externally without your consent.';

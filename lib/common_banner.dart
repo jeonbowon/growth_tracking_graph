@@ -70,7 +70,14 @@ class _CommonBannerState extends State<CommonBanner> {
                 child: FacebookBannerAd(
                   placementId: AdService.metaBannerPlacementId,
                   bannerSize: BannerSize.STANDARD,
-                  listener: (result, value) {},
+                  listener: (result, value) {
+                    if (result == BannerAdResult.ERROR) {
+                      debugPrint('[Meta] 배너 로드 실패 — $value');
+                      AdService.instance.onMetaBannerFailed();
+                    } else if (result == BannerAdResult.LOADED) {
+                      debugPrint('[Meta] 배너 로드 성공');
+                    }
+                  },
                 ),
               ),
             );

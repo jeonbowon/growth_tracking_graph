@@ -35,7 +35,6 @@ Future<void> _initAds() async {
       RequestConfiguration(
         testDeviceIds: [
           '2A17A469EEC2D5F0054CC27E08230F27',
-          '580515C2E9C58494D3CB6F94A93040C1',
         ],
       ),
     );
