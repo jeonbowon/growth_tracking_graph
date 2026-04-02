@@ -301,11 +301,32 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                             spacing: 10,
                             runSpacing: 6,
                             children: [
-                              for (final p in kPercentiles)
-                                FilterChip(
-                                  selected: _visible[p] == true,
-                                  label: Text('P$p'),
-                                  onSelected: (v) => setState(() => _visible[p] = v),
+                              for (final entry in const {
+                                3: Colors.blueGrey,
+                                10: Colors.blue,
+                                25: Colors.cyan,
+                                50: Colors.green,
+                                75: Colors.orange,
+                                90: Colors.deepOrange,
+                                97: Colors.red,
+                              }.entries)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: entry.value,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'P${entry.key}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ),
