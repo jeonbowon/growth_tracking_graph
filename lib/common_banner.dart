@@ -8,7 +8,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'ad_service.dart';
 
 /// 앱 어디서든 공통으로 사용하는 배너 광고 위젯
-/// AdMob → Kakao AdFit → Meta 순서로 폴백
+/// _bannerOrder에 설정된 순서대로 네트워크를 시도하며 폴백
 class CommonBanner extends StatefulWidget {
   const CommonBanner({super.key});
 
@@ -32,36 +32,34 @@ class _CommonBannerState extends State<CommonBanner> {
       builder: (context, _, __) {
         final service = AdService.instance;
 
-        // AdMob 로드 성공
-        if (!service.isMetaBannerFallback &&
-            service.isBannerLoaded &&
-            service.bannerAd != null) {
-          final ad = service.bannerAd!;
-          return SafeArea(
-            top: false,
-            child: Container(
-              alignment: Alignment.center,
-              width: double.infinity,
-              height: ad.size.height.toDouble(),
-              child: AdWidget(ad: ad),
-            ),
-          );
-        }
+        switch (service.activeBannerNetwork) {
+          case 'admob':
+            final ad = service.bannerAd;
+            if (ad != null && service.isBannerLoaded) {
+              return SafeArea(
+                top: false,
+                child: Container(
+                  alignment: Alignment.center,
+                  width: double.infinity,
+                  height: ad.size.height.toDouble(),
+                  child: AdWidget(ad: ad),
+                ),
+              );
+            }
 
-        // AdMob 실패 후 순서에 따라 표시
-        final fallbackOrder = service.bannerOrder.where((n) => n != 'admob').toList();
-        for (final network in fallbackOrder) {
-          if (network == 'kakao' && service.isKakaoBannerFallback && service.isKakaoBannerLoaded && Platform.isAndroid) {
-            return const SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                height: bannerHeight,
-                child: AndroidView(viewType: 'adfit_banner'),
-              ),
-            );
-          }
-          if (network == 'meta' && service.isMetaBannerFallback && !service.isKakaoBannerFallback) {
+          case 'kakao':
+            if (service.isKakaoBannerLoaded && Platform.isAndroid) {
+              return const SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: bannerHeight,
+                  child: AndroidView(viewType: 'adfit_banner'),
+                ),
+              );
+            }
+
+          case 'meta':
             return SafeArea(
               top: false,
               child: SizedBox(
@@ -81,10 +79,9 @@ class _CommonBannerState extends State<CommonBanner> {
                 ),
               ),
             );
-          }
         }
 
-        // 모두 실패 또는 로드 대기
+        // 로드 대기 중 또는 모든 네트워크 실패
         return const SafeArea(
           top: false,
           child: SizedBox(width: double.infinity, height: bannerHeight),

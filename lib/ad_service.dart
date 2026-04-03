@@ -34,13 +34,14 @@ class AdService {
   // AdMob 배너
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
-  bool _isMetaBannerFallback = false;
+
+  // 현재 표시 중인 배너 네트워크: 'admob' | 'kakao' | 'meta' | null
+  String? _activeBannerNetwork;
 
   // Kakao AdFit 배너
   static const String kakaoBannerUnitId = 'DAN-n4HBHJI8uUgHQqIl';
   bool _isKakaoBannerLoaded = false;
   bool _isKakaoBannerLoading = false;
-  bool _isKakaoBannerFallback = false;
 
   Timer? _bannerRetryTimer;
   int _bannerRetryAttempt = 0;
@@ -76,11 +77,8 @@ class AdService {
   BannerAd? get bannerAd => _bannerAd;
   List<String> get bannerOrder => _bannerOrder;
 
-  /// AdMob 배너 로드 실패 시 Meta 배너를 대신 표시해야 하는지 여부
-  bool get isMetaBannerFallback => _isMetaBannerFallback;
-
-  /// Kakao AdFit 배너를 표시해야 하는지 여부
-  bool get isKakaoBannerFallback => _isKakaoBannerFallback;
+  /// 현재 표시 중인 배너 네트워크 ('admob' | 'kakao' | 'meta' | null)
+  String? get activeBannerNetwork => _activeBannerNetwork;
 
   /// Kakao AdFit 배너 로드 성공 여부
   bool get isKakaoBannerLoaded => _isKakaoBannerLoaded;
@@ -102,13 +100,36 @@ class AdService {
 
   void loadBanner() {
     if (_isDisposed) return;
-    if (_bannerAd != null) return;
-    final unitId = bannerAdUnitId;
-    if (unitId.isEmpty) return;
-
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
-    _isMetaBannerFallback = false;
+
+    // _bannerOrder 첫 번째 네트워크부터 시도
+    final first = _bannerOrder.isNotEmpty ? _bannerOrder[0] : 'admob';
+    _startBannerNetwork(first);
+  }
+
+  /// 지정된 네트워크로 배너 로드를 시작한다.
+  void _startBannerNetwork(String network) {
+    if (_isDisposed) return;
+    if (network == 'admob') {
+      _loadAdmobBanner();
+    } else if (network == 'kakao') {
+      _loadKakaoBannerIfNeeded();
+    } else if (network == 'meta') {
+      _activeBannerNetwork = 'meta';
+      _notifyBannerChanged();
+    }
+  }
+
+  /// AdMob 배너 로드
+  void _loadAdmobBanner() {
+    if (_isDisposed) return;
+    if (_bannerAd != null) return;
+    final unitId = bannerAdUnitId;
+    if (unitId.isEmpty) {
+      _onBannerFailed('admob');
+      return;
+    }
 
     _bannerAd = BannerAd(
       adUnitId: unitId,
@@ -117,7 +138,7 @@ class AdService {
       listener: BannerAdListener(
         onAdLoaded: (ad) {
           _isBannerLoaded = true;
-          _isMetaBannerFallback = false;
+          _activeBannerNetwork = 'admob';
           _bannerRetryAttempt = 0;
           _notifyBannerChanged();
         },
@@ -125,19 +146,24 @@ class AdService {
           ad.dispose();
           _bannerAd = null;
           _isBannerLoaded = false;
-          _isMetaBannerFallback = true;
-          _notifyBannerChanged();
-          _scheduleBannerRetry();
-          // 순서에 따라 다음 네트워크 로드
-          final next = _getNextBannerNetwork('admob');
-          if (next == 'meta') {
-            // Meta는 CommonBanner 위젯에서 isMetaBannerFallback 플래그로 표시되므로 별도 로드 불필요
-          } else if (next == 'kakao') {
-            _loadKakaoBannerIfNeeded();
-          }
+          _onBannerFailed('admob');
         },
       ),
     )..load();
+  }
+
+  /// 특정 네트워크 실패 시 다음 네트워크로 넘어가거나 재시도를 예약한다.
+  void _onBannerFailed(String failedNetwork) {
+    if (_isDisposed) return;
+    final next = _getNextBannerNetwork(failedNetwork);
+    if (next != null) {
+      _startBannerNetwork(next);
+    } else {
+      // 모든 네트워크 실패 → 재시도 예약
+      _activeBannerNetwork = null;
+      _notifyBannerChanged();
+      _scheduleBannerRetry();
+    }
   }
 
   void _notifyBannerChanged() {
@@ -155,15 +181,15 @@ class AdService {
       if (_isDisposed) return;
       if (result == 'loaded') {
         _isKakaoBannerLoaded = true;
-        _isKakaoBannerFallback = true;
+        _activeBannerNetwork = 'kakao';
         _notifyBannerChanged();
       } else {
         _isKakaoBannerLoaded = false;
-        _scheduleBannerRetry();
+        _onBannerFailed('kakao');
       }
     } catch (_) {
       _isKakaoBannerLoaded = false;
-      _scheduleBannerRetry();
+      _onBannerFailed('kakao');
     } finally {
       _isKakaoBannerLoading = false;
     }
@@ -180,7 +206,12 @@ class AdService {
     _bannerRetryTimer = Timer(delay, () {
       _bannerRetryTimer = null;
       if (_isDisposed) return;
-      if (_bannerAd != null || _isBannerLoaded) return;
+      if (_activeBannerNetwork != null || _isBannerLoaded) return;
+      // 재시도 전 Kakao 로딩 상태 초기화 (이전 시도 잔여 상태 제거)
+      _isKakaoBannerLoaded = false;
+      _isKakaoBannerLoading = false;
+      _bannerAd?.dispose();
+      _bannerAd = null;
       loadBanner();
     });
   }
@@ -192,7 +223,9 @@ class AdService {
     _bannerAd?.dispose();
     _bannerAd = null;
     _isBannerLoaded = false;
-    _isMetaBannerFallback = false;
+    _isKakaoBannerLoaded = false;
+    _isKakaoBannerLoading = false;
+    _activeBannerNetwork = null;
     _notifyBannerChanged();
     loadBanner();
   }
@@ -366,62 +399,60 @@ class AdService {
       return;
     }
 
-    await _loadInterstitialIfNeeded();
-    final ad = _interstitialAd;
-
-    if (ad == null) {
-      final networks = _interstitialOrder.where((n) => n != 'admob').toList();
-      for (final network in networks) {
-        if (network == 'kakao' && _isKakaoInterstitialLoaded) {
-          await _showKakaoInterstitial();
-          return;
-        } else if (network == 'meta' && _isMetaInterstitialLoaded) {
-          _metaInterstitialCompleter = Completer<void>();
+    // _interstitialOrder 순서 그대로 로드된 네트워크를 탐색해 첫 번째 가용 광고를 표시
+    for (final network in _interstitialOrder) {
+      if (network == 'admob') {
+        await _loadInterstitialIfNeeded();
+        final ad = _interstitialAd;
+        if (ad != null) {
+          final completer = Completer<void>();
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _interstitialAd = null;
+              _lastInterstitialShownAt = DateTime.now();
+              _loadInterstitialIfNeeded();
+              if (!completer.isCompleted) completer.complete();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _interstitialAd = null;
+              _loadInterstitialIfNeeded();
+              if (!completer.isCompleted) completer.complete();
+            },
+          );
           try {
-            FacebookInterstitialAd.showInterstitialAd();
-            await _metaInterstitialCompleter!.future;
+            ad.show();
+            await completer.future;
           } catch (_) {
-            _isMetaInterstitialLoaded = false;
-            _metaInterstitialCompleter?.complete();
-            _metaInterstitialCompleter = null;
-            _loadMetaInterstitialIfNeeded();
+            try { ad.dispose(); } catch (_) {}
+            _interstitialAd = null;
+            _loadInterstitialIfNeeded();
           }
           return;
         }
+      } else if (network == 'kakao' && _isKakaoInterstitialLoaded) {
+        await _showKakaoInterstitial();
+        return;
+      } else if (network == 'meta' && _isMetaInterstitialLoaded) {
+        _metaInterstitialCompleter = Completer<void>();
+        try {
+          FacebookInterstitialAd.showInterstitialAd();
+          await _metaInterstitialCompleter!.future;
+        } catch (_) {
+          _isMetaInterstitialLoaded = false;
+          _metaInterstitialCompleter?.complete();
+          _metaInterstitialCompleter = null;
+          _loadMetaInterstitialIfNeeded();
+        }
+        return;
       }
-      _loadKakaoInterstitialIfNeeded();
-      _loadMetaInterstitialIfNeeded();
-      return;
     }
 
-    final completer = Completer<void>();
-
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        _interstitialAd = null;
-        _lastInterstitialShownAt = DateTime.now();
-        _loadInterstitialIfNeeded();
-        if (!completer.isCompleted) completer.complete();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        ad.dispose();
-        _interstitialAd = null;
-        _loadInterstitialIfNeeded();
-        if (!completer.isCompleted) completer.complete();
-      },
-    );
-
-    try {
-      ad.show();
-      await completer.future;
-    } catch (_) {
-      try {
-        ad.dispose();
-      } catch (_) {}
-      _interstitialAd = null;
-      _loadInterstitialIfNeeded();
-    }
+    // 모든 네트워크 미준비 → 사전 로드만 트리거
+    _loadInterstitialIfNeeded();
+    _loadKakaoInterstitialIfNeeded();
+    _loadMetaInterstitialIfNeeded();
   }
 
   // 현재 네트워크 다음 순서의 네트워크를 반환
@@ -432,13 +463,9 @@ class AdService {
   }
 
   /// Meta 배너 위젯 로드 실패 시 호출.
-  /// 순서상 Meta 다음에 Kakao가 있으면 Kakao 배너 로드를 시작한다.
   void onMetaBannerFailed() {
-    final metaIdx = _bannerOrder.indexOf('meta');
-    final kakaoIdx = _bannerOrder.indexOf('kakao');
-    if (metaIdx != -1 && kakaoIdx != -1 && kakaoIdx > metaIdx) {
-      _loadKakaoBannerIfNeeded();
-    }
+    _activeBannerNetwork = null;
+    _onBannerFailed('meta');
   }
 
   static const String _prefKeyBannerOrder = 'ad_config_banner_order';
@@ -501,7 +528,7 @@ class AdService {
 
     _isKakaoBannerLoaded = false;
     _isKakaoBannerLoading = false;
-    _isKakaoBannerFallback = false;
+    _activeBannerNetwork = null;
 
     _interstitialRetryTimer?.cancel();
     _interstitialRetryTimer = null;
