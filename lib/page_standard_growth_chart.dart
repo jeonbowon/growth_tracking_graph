@@ -66,6 +66,8 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
   bool _loading = true;
   String? _error;
 
+  List<LineBarSpot>? _touchedSpots;
+
   @override
   void initState() {
     super.initState();
@@ -171,7 +173,11 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
 
   Widget _leftTitle(double v, TitleMeta meta) {
     final txt = _metric == Metric.bmi ? v.toStringAsFixed(1) : v.toStringAsFixed(0);
-    return Text(txt, style: const TextStyle(fontSize: 11));
+    return SideTitleWidget(
+      meta: meta,
+      space: 4,
+      child: Text(txt, style: const TextStyle(fontSize: 11)),
+    );
   }
 
   @override
@@ -186,7 +192,7 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: AppStrings.stdChartReload),
         ],
       ),
-      body: _loading
+      body: SafeArea(child: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -240,95 +246,119 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                           ),
                           const SizedBox(height: 8),
                           Expanded(
-                            child: LineChart(
-                              LineChartData(
-                                minX: b.minX,
-                                maxX: b.maxX,
-                                minY: b.minY,
-                                maxY: b.maxY,
-                                gridData: FlGridData(show: true),
-                                borderData: FlBorderData(show: true),
-                                lineBarsData: _lines(series),
-                                titlesData: FlTitlesData(
-                                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                  bottomTitles: AxisTitles(
-                                    axisNameWidget: Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Text(AppStrings.stdChartXLabel),
-                                    ),
-                                    sideTitles: SideTitles(
-                                      showTitles: true,
-                                      reservedSize: 28,
-                                      getTitlesWidget: _bottomTitle,
-                                    ),
-                                  ),
-                                  leftTitles: AxisTitles(
-                                    axisNameWidget: Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: Text(_metric.unit),
-                                    ),
-                                    sideTitles: SideTitles(
-                                      showTitles: true,
-                                      reservedSize: 42,
-                                      getTitlesWidget: _leftTitle,
-                                    ),
-                                  ),
-                                ),
-                                lineTouchData: LineTouchData(
-                                  enabled: true,
-                                  touchTooltipData: LineTouchTooltipData(
-                                    fitInsideHorizontally: true,
-                                    fitInsideVertically: true,
-                                    getTooltipItems: (spots) {
-                                      return spots.map((s) {
-                                        final m = s.x.round();
-                                        final years = (m / 12.0).toStringAsFixed(1);
-                                        final val = _metric == Metric.bmi
-                                            ? s.y.toStringAsFixed(1)
-                                            : s.y.toStringAsFixed(0);
-                                        final t = AppStrings.stdChartTooltip(m, years, _metric.label, val, _metric.unit);
-                                        return LineTooltipItem(t, const TextStyle(fontSize: 12));
-                                      }).toList();
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 6,
-                            children: [
-                              for (final entry in const {
-                                3: Colors.blueGrey,
-                                10: Colors.blue,
-                                25: Colors.cyan,
-                                50: Colors.green,
-                                75: Colors.orange,
-                                90: Colors.deepOrange,
-                                97: Colors.red,
-                              }.entries)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 10,
-                                      height: 10,
-                                      decoration: BoxDecoration(
-                                        color: entry.value,
-                                        borderRadius: BorderRadius.circular(3),
+                            child: Stack(
+                              children: [
+                                LineChart(
+                                  LineChartData(
+                                    minX: b.minX,
+                                    maxX: b.maxX,
+                                    minY: b.minY,
+                                    maxY: b.maxY,
+                                    gridData: FlGridData(show: true),
+                                    borderData: FlBorderData(show: true),
+                                    lineBarsData: _lines(series),
+                                    titlesData: FlTitlesData(
+                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                      bottomTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: 22,
+                                          interval: 12,
+                                          getTitlesWidget: _bottomTitle,
+                                        ),
+                                      ),
+                                      leftTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: 30,
+                                          getTitlesWidget: _leftTitle,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'P${entry.key}',
-                                      style: const TextStyle(fontSize: 12),
+                                    lineTouchData: LineTouchData(
+                                      enabled: true,
+                                      touchTooltipData: LineTouchTooltipData(
+                                        getTooltipItems: (spots) => spots.map((_) => null).toList(),
+                                      ),
+                                      touchCallback: (event, response) {
+                                        setState(() {
+                                          if (event.isInterestedForInteractions &&
+                                              response?.lineBarSpots != null &&
+                                              response!.lineBarSpots!.isNotEmpty) {
+                                            _touchedSpots = response.lineBarSpots;
+                                          } else {
+                                            _touchedSpots = null;
+                                          }
+                                        });
+                                      },
                                     ),
-                                  ],
+                                  ),
                                 ),
-                            ],
+                                if (_touchedSpots != null && _touchedSpots!.isNotEmpty)
+                                  Positioned(
+                                    top: 8,
+                                    left: 48,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.85),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.black12),
+                                      ),
+                                      child: Builder(builder: (context) {
+                                        const colorMap = <int, Color>{
+                                          3: Colors.blueGrey,
+                                          10: Colors.blue,
+                                          25: Colors.cyan,
+                                          50: Colors.green,
+                                          75: Colors.orange,
+                                          90: Colors.deepOrange,
+                                          97: Colors.red,
+                                        };
+                                        final visiblePs = kPercentiles
+                                            .where((p) => _visible[p] == true)
+                                            .toList();
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: _touchedSpots!.reversed.map((s) {
+                                            final m = s.x.round();
+                                            final val = _metric == Metric.bmi
+                                                ? s.y.toStringAsFixed(1)
+                                                : s.y.toStringAsFixed(0);
+                                            final p = s.barIndex < visiblePs.length
+                                                ? visiblePs[s.barIndex]
+                                                : -1;
+                                            final color = colorMap[p] ?? Colors.black;
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 1),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 8,
+                                                    height: 8,
+                                                    decoration: BoxDecoration(
+                                                      color: color,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '${m}개월  $val${_metric.unit}',
+                                                    style: const TextStyle(fontSize: 11, color: Colors.black),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        );
+                                      }),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -342,6 +372,7 @@ class _PageStandardGrowthChartState extends State<PageStandardGrowthChart> {
                 ),
               ],
             ),
+    ),
     );
   }
 }

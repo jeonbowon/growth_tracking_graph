@@ -1166,7 +1166,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           ),
         ],
       ),
-      body: _entries.isEmpty
+      body: SafeArea(child: _entries.isEmpty
           ? Center(
               child: Text(
                 AppStrings.chartNoData,
@@ -1222,6 +1222,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                     ),
                   ],
                 ),
+    ),
     );
   }
 }

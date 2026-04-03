@@ -160,7 +160,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
 
     return Scaffold(
       appBar: AppBar(title: Text(AppStrings.growthInputTitle(widget.childName))),
-      body: SingleChildScrollView(
+      body: SafeArea(child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,7 +278,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+      )),
     );
   }
 }

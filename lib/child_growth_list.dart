@@ -273,7 +273,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
           )
         ],
       ),
-      body: entries.isEmpty
+      body: SafeArea(child: entries.isEmpty
           ? Center(
               child: Text(
                 AppStrings.noData,
@@ -353,6 +353,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                 },
               ),
             ),
+    ),
     );
   }
 }

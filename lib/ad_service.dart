@@ -163,6 +163,7 @@ class AdService {
       }
     } catch (_) {
       _isKakaoBannerLoaded = false;
+      _scheduleBannerRetry();
     } finally {
       _isKakaoBannerLoading = false;
     }

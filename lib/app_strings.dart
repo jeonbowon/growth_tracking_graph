@@ -230,7 +230,7 @@ class AppStrings {
   static String get stdChartUnitKg => 'kg';
   static String get stdChartUnitBmi => 'kg/m²';
   static String get stdChartXLabel =>
-      isKo ? '연령(년)  ※ X축은 개월 기반' : 'Age (years)  ※ X-axis in months';
+      isKo ? '연령(년)' : 'Age (years)';
   static String get stdChartSource =>
       isKo
           ? '출처: 2017 소아청소년 성장도표(대한소아청소년과학회·질병관리본부)'
