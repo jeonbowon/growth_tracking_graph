@@ -56,10 +56,10 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     return _calcAgeMonths(widget.birthdate, selectedDate);
   }
 
-  double? _parsePositiveDouble(String text) {
+  double? _parsePositiveDouble(String text, {double max = 999}) {
     final v = double.tryParse(text.trim());
     if (v == null) return null;
-    if (v <= 0) return null;
+    if (v <= 0 || v > max) return null;
     return v;
   }
 
@@ -79,8 +79,8 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
   }
 
   void _calculateBMI() {
-    final height = _parsePositiveDouble(heightController.text);
-    final weight = _parsePositiveDouble(weightController.text);
+    final height = _parsePositiveDouble(heightController.text, max: 300);
+    final weight = _parsePositiveDouble(weightController.text, max: 300);
 
     if (height != null && weight != null) {
       final bmi = weight / ((height / 100) * (height / 100));
@@ -95,8 +95,8 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
   }
 
   Future<void> saveGrowthData() async {
-    final height = _parsePositiveDouble(heightController.text);
-    final weight = _parsePositiveDouble(weightController.text);
+    final height = _parsePositiveDouble(heightController.text, max: 300);
+    final weight = _parsePositiveDouble(weightController.text, max: 300);
 
     // 둘 다 없으면 저장 불가 (둘 중 하나만 있어도 저장 OK)
     if (height == null && weight == null) {

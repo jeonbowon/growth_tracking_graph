@@ -13,10 +13,13 @@ class PageAppExplanation extends StatefulWidget {
 class _PageAppExplanationState extends State<PageAppExplanation> {
   int _tapCount = 0;
   DateTime? _lastTapTime;
+  late final Future<String> _versionFuture;
 
-  Future<String> _appVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    return 'v${info.version}+${info.buildNumber}';
+  @override
+  void initState() {
+    super.initState();
+    _versionFuture = PackageInfo.fromPlatform()
+        .then((info) => 'v${info.version}+${info.buildNumber}');
   }
 
   void _onTitleTap() {
@@ -78,7 +81,7 @@ class _PageAppExplanationState extends State<PageAppExplanation> {
         title: GestureDetector(
           onTap: _onTitleTap,
           child: FutureBuilder<String>(
-            future: _appVersion(),
+            future: _versionFuture,
             builder: (context, snapshot) {
               final version = snapshot.data ?? '';
               return Text(version.isEmpty ? AppStrings.explanationTitle : AppStrings.versionTitle(version));

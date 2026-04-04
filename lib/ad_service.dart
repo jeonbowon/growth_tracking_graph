@@ -15,7 +15,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - 전면광고: 저장/복원/삭제/앱 시작/앱 종료 직후에는 절대 표시하지 않음
 /// - 전면광고: 사용자가 콘텐츠 화면으로 이동하는 자연스러운 전환 시점에만 제한적으로 표시
 class AdService {
-  AdService._();
+  AdService._() {
+    // 서버 설정이 없을 때의 기본 순서를 로케일로 결정
+    // 한국: kakao → meta → admob / 해외: admob → meta (kakao 제외)
+    final isKorean = Platform.localeName.startsWith('ko');
+    _bannerOrder = isKorean ? ['kakao', 'meta', 'admob'] : ['admob', 'meta'];
+    _interstitialOrder = isKorean ? ['kakao', 'meta', 'admob'] : ['admob', 'meta'];
+  }
   static final AdService instance = AdService._();
 
   // 광고 SDK(MobileAds + Meta) 초기화 완료 신호
@@ -27,9 +33,9 @@ class AdService {
 
   bool _isDisposed = false;
 
-  // 광고 네트워크 순서 (기본값: admob → kakao → meta)
-  List<String> _bannerOrder = ['admob', 'kakao', 'meta'];
-  List<String> _interstitialOrder = ['admob', 'kakao', 'meta'];
+  // 광고 네트워크 순서 (생성자에서 로케일 기반으로 초기화)
+  late List<String> _bannerOrder;
+  late List<String> _interstitialOrder;
 
   // AdMob 배너
   BannerAd? _bannerAd;
@@ -44,6 +50,7 @@ class AdService {
   bool _isKakaoBannerLoading = false;
 
   Timer? _bannerRetryTimer;
+  Timer? _metaBannerTimeoutTimer;
   int _bannerRetryAttempt = 0;
 
   final ValueNotifier<int> _bannerRevision = ValueNotifier<int>(0);
@@ -118,6 +125,14 @@ class AdService {
     } else if (network == 'meta') {
       _activeBannerNetwork = 'meta';
       _notifyBannerChanged();
+      // Meta SDK 콜백이 오지 않는 경우를 대비한 타임아웃 (5초)
+      _metaBannerTimeoutTimer?.cancel();
+      _metaBannerTimeoutTimer = Timer(const Duration(seconds: 5), () {
+        _metaBannerTimeoutTimer = null;
+        if (_activeBannerNetwork == 'meta') {
+          onMetaBannerFailed();
+        }
+      });
     }
   }
 
@@ -220,6 +235,8 @@ class AdService {
     if (_isDisposed) return;
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
+    _metaBannerTimeoutTimer?.cancel();
+    _metaBannerTimeoutTimer = null;
     _bannerAd?.dispose();
     _bannerAd = null;
     _isBannerLoaded = false;
@@ -462,9 +479,18 @@ class AdService {
     return _bannerOrder[idx + 1];
   }
 
+  /// Meta 배너 위젯 로드 성공 시 호출.
+  void onMetaBannerLoaded() {
+    _metaBannerTimeoutTimer?.cancel();
+    _metaBannerTimeoutTimer = null;
+  }
+
   /// Meta 배너 위젯 로드 실패 시 호출.
   void onMetaBannerFailed() {
+    _metaBannerTimeoutTimer?.cancel();
+    _metaBannerTimeoutTimer = null;
     _activeBannerNetwork = null;
+    _notifyBannerChanged();
     _onBannerFailed('meta');
   }
 
@@ -487,31 +513,44 @@ class AdService {
 
   /// 서버에서 최신 설정을 가져와 캐시에 저장. 다음 앱 시작부터 적용됨.
   /// markAdsReady() 이후 unawaited로 호출.
+  ///
+  /// 서버 JSON 키 규칙:
+  ///   ad_banner_order          — 한국 사용자용 배너 순서
+  ///   ad_banner_order_overseas — 해외 사용자용 배너 순서 (없으면 한국용으로 fallback)
+  ///   ad_interstitial_order          — 한국 사용자용 전면광고 순서
+  ///   ad_interstitial_order_overseas — 해외 사용자용 전면광고 순서 (없으면 한국용으로 fallback)
   Future<void> fetchAndCacheConfig() async {
+    final client = HttpClient();
     try {
       final uri = Uri.parse('https://tnb-soft.com/config/growth_tracker.json');
-      final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
       final request = await client.getUrl(uri);
       final response = await request.close();
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final json = jsonDecode(body) as Map<String, dynamic>;
-        final banner = json['ad_banner_order'];
-        final interstitial = json['ad_interstitial_order'];
+
+        // 로케일에 맞는 키 선택
+        // - 한국: ad_banner_order 사용
+        // - 해외: ad_banner_order_overseas 사용. 없으면 저장 안 함 → 코드 기본값 유지
+        final isKorean = Platform.localeName.startsWith('ko');
+        final bannerKey = isKorean ? 'ad_banner_order' : 'ad_banner_order_overseas';
+        final interstitialKey = isKorean ? 'ad_interstitial_order' : 'ad_interstitial_order_overseas';
+
         final prefs = await SharedPreferences.getInstance();
-        if (banner is List) {
-          final list = banner.map((e) => e.toString()).toList();
+        if (json.containsKey(bannerKey) && json[bannerKey] is List) {
+          final list = (json[bannerKey] as List).map((e) => e.toString()).toList();
           await prefs.setStringList(_prefKeyBannerOrder, list);
         }
-        if (interstitial is List) {
-          final list = interstitial.map((e) => e.toString()).toList();
+        if (json.containsKey(interstitialKey) && json[interstitialKey] is List) {
+          final list = (json[interstitialKey] as List).map((e) => e.toString()).toList();
           await prefs.setStringList(_prefKeyInterstitialOrder, list);
         }
       }
-      client.close();
     } catch (_) {
       // 실패 시 기존 캐시값 유지
+    } finally {
+      client.close();
     }
   }
 
@@ -520,6 +559,8 @@ class AdService {
 
     _bannerRetryTimer?.cancel();
     _bannerRetryTimer = null;
+    _metaBannerTimeoutTimer?.cancel();
+    _metaBannerTimeoutTimer = null;
     _bannerAd?.dispose();
     _bannerAd = null;
     _isBannerLoaded = false;
@@ -543,6 +584,8 @@ class AdService {
 
     _isKakaoInterstitialLoaded = false;
     _isKakaoInterstitialLoading = false;
+
+    _bannerRevision.dispose();
 
     const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/adfit');
     channel.invokeMethod<void>('destroyBanner');

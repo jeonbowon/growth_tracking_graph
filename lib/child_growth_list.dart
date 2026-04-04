@@ -250,13 +250,14 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       await _saveEntries();
     }
 
-    // controller는 _saveEntries 완료 후 dispose
-    // → showDialog resolve 시점에 exit animation이 아직 진행 중일 수 있으므로
-    //   animation이 끝난 뒤(~150ms) dispose해야 TextField가 disposed controller를 참조하지 않음
-    heightController.dispose();
-    weightController.dispose();
-    bmiController.dispose();
-    ageController.dispose();
+    // showDialog resolve 시점에 exit animation이 아직 진행 중이므로
+    // animation 완료(~300ms) 후 dispose
+    Future.delayed(const Duration(milliseconds: 300), () {
+      heightController.dispose();
+      weightController.dispose();
+      bmiController.dispose();
+      ageController.dispose();
+    });
   }
 
   @override

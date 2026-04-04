@@ -74,6 +74,7 @@ class _CommonBannerState extends State<CommonBanner> {
                       AdService.instance.onMetaBannerFailed();
                     } else if (result == BannerAdResult.LOADED) {
                       debugPrint('[Meta] 배너 로드 성공');
+                      AdService.instance.onMetaBannerLoaded();
                     }
                   },
                 ),
