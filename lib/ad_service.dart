@@ -123,15 +123,21 @@ class AdService {
     } else if (network == 'kakao') {
       _loadKakaoBannerIfNeeded();
     } else if (network == 'meta') {
-      _activeBannerNetwork = 'meta';
-      _notifyBannerChanged();
-      // Meta SDK 콜백이 오지 않는 경우를 대비한 타임아웃 (5초)
-      _metaBannerTimeoutTimer?.cancel();
-      _metaBannerTimeoutTimer = Timer(const Duration(seconds: 5), () {
-        _metaBannerTimeoutTimer = null;
-        if (_activeBannerNetwork == 'meta') {
-          onMetaBannerFailed();
-        }
+      // Meta SDK는 adsReady(FacebookAudienceNetwork.init() 완료) 이후에만 안전하게 사용 가능
+      adsReady.then((_) {
+        if (_isDisposed) return;
+        // adsReady 대기 중 다른 네트워크로 이미 전환된 경우 무시
+        if (_activeBannerNetwork != null && _activeBannerNetwork != 'meta') return;
+        _activeBannerNetwork = 'meta';
+        _notifyBannerChanged();
+        // Meta SDK 콜백이 오지 않는 경우를 대비한 타임아웃 (5초)
+        _metaBannerTimeoutTimer?.cancel();
+        _metaBannerTimeoutTimer = Timer(const Duration(seconds: 5), () {
+          _metaBannerTimeoutTimer = null;
+          if (_activeBannerNetwork == 'meta') {
+            onMetaBannerFailed();
+          }
+        });
       });
     }
   }
