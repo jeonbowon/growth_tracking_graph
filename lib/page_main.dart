@@ -40,23 +40,17 @@ class _MainPageState extends State<MainPage> {
       if (!mounted) return;
 
       if (info.updateAvailability != UpdateAvailability.updateAvailable) return;
-      if (!info.flexibleUpdateAllowed) return;
 
-      // 백그라운드 다운로드 시작 — 완료되면 success 반환
-      final result = await InAppUpdate.startFlexibleUpdate();
-      if (!mounted) return;
-
-      if (result == AppUpdateResult.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppStrings.updateReady),
-            duration: const Duration(seconds: 10),
-            action: SnackBarAction(
-              label: AppStrings.updateNow,
-              onPressed: () => InAppUpdate.completeFlexibleUpdate(),
-            ),
-          ),
-        );
+      if (info.immediateUpdateAllowed) {
+        // 강제 업데이트: 사용자가 업데이트해야만 앱을 사용 가능
+        await InAppUpdate.performImmediateUpdate();
+      } else if (info.flexibleUpdateAllowed) {
+        // 백그라운드 다운로드 시작 — 완료 후 자동 설치
+        final result = await InAppUpdate.startFlexibleUpdate();
+        if (!mounted) return;
+        if (result == AppUpdateResult.success) {
+          await InAppUpdate.completeFlexibleUpdate();
+        }
       }
     } catch (_) {
       // 업데이트 확인 실패는 조용히 무시
