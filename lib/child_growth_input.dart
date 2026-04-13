@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
+import 'package:in_app_review/in_app_review.dart';
+
 import 'growth_entry.dart';
 import 'child_profile.dart';
 import 'app_strings.dart';
@@ -152,6 +154,15 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(AppStrings.saved)));
     Navigator.pop(context);
+
+    final count = (prefs.getInt('growth_save_count') ?? 0) + 1;
+    await prefs.setInt('growth_save_count', count);
+    if (count == 3) {
+      final inAppReview = InAppReview.instance;
+      if (await inAppReview.isAvailable()) {
+        await inAppReview.requestReview();
+      }
+    }
   }
 
   @override
