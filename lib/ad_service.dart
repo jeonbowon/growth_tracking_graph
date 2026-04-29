@@ -19,8 +19,8 @@ class AdService {
     // 서버 설정이 없을 때의 기본 순서를 로케일로 결정
     // 한국: kakao → meta → admob / 해외: admob → meta (kakao 제외)
     final isKorean = Platform.localeName.startsWith('ko');
-    _bannerOrder = isKorean ? ['kakao', 'meta', 'admob'] : ['admob', 'meta'];
-    _interstitialOrder = isKorean ? ['kakao', 'meta', 'admob'] : ['admob', 'meta'];
+    _bannerOrder = isKorean ? ['admob', 'kakao', 'meta'] : ['admob', 'meta'];
+    _interstitialOrder = isKorean ? ['admob', 'kakao', 'meta'] : ['admob', 'meta'];
   }
   static final AdService instance = AdService._();
 
