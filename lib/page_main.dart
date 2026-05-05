@@ -165,7 +165,7 @@ class _MainPageState extends State<MainPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (context) => SafeArea(
+      builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -182,9 +182,9 @@ class _MainPageState extends State<MainPage> {
             ListTile(
               leading: const Icon(Icons.add, color: AppColors.accent),
               title: Text(AppStrings.actionAddData),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(context);
-                await Navigator.push(
+                Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChildGrowthInput(
@@ -203,7 +203,7 @@ class _MainPageState extends State<MainPage> {
                 Navigator.pop(context);
                 await AdService.instance.tryShowInterstitialOnNaturalTransition();
                 if (!mounted) return;
-                await Navigator.push(
+                Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChildGrowthList(
@@ -222,7 +222,7 @@ class _MainPageState extends State<MainPage> {
                 Navigator.pop(context);
                 await AdService.instance.tryShowInterstitialOnNaturalTransition();
                 if (!mounted) return;
-                await Navigator.push(
+                Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChildGrowthChart(

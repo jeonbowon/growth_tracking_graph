@@ -43,6 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # ---- Flutter Desktop generated (prevent constant modified files) ----
 **/generated_plugin_registrant.*
