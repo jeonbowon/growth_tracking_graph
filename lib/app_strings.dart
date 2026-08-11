@@ -109,8 +109,30 @@ class AppStrings {
       isKo ? '$name - 성장 데이터 입력' : '$name - Add Growth Data';
   static String measureDate(String date) =>
       isKo ? '측정일: $date' : 'Date: $date';
+  /// 월령 → "만 N세 M개월" 라벨. 12개월 미만은 빈 문자열 반환.
+  /// [compact]는 영어 표기에만 영향 (true: "3y 10m", false: "3 yr 10 mo").
+  static String ageYearMonthLabel(int months, {bool compact = false}) {
+    if (months < 12) return '';
+    final y = months ~/ 12;
+    final m = months % 12;
+    if (isKo) {
+      return m == 0 ? '만 ${y}세' : '만 ${y}세 ${m}개월';
+    }
+    if (compact) {
+      return m == 0 ? '${y}y' : '${y}y ${m}m';
+    }
+    return m == 0 ? '${y} yr' : '${y} yr ${m} mo';
+  }
+
+  /// 월령 → " (만 N세 M개월)" 병기 접미사. 12개월 미만은 빈 문자열.
+  static String ageYearMonthSuffix(int months, {bool compact = false}) {
+    final label = ageYearMonthLabel(months, compact: compact);
+    return label.isEmpty ? '' : ' ($label)';
+  }
+
   static String ageMonths(int months) =>
-      isKo ? '월령: ${months}개월' : 'Age: $months months';
+      (isKo ? '월령: ${months}개월' : 'Age: $months months') +
+      ageYearMonthSuffix(months);
   static String get selectDate => isKo ? '날짜 선택' : 'Select Date';
   static String get labelHeight => isKo ? '키 (cm)' : 'Height (cm)';
   static String get labelWeight => isKo ? '몸무게 (kg)' : 'Weight (kg)';
@@ -168,10 +190,15 @@ class AppStrings {
       isKo ? '저장 중 오류가 발생했습니다.' : 'Save error.';
   static String entryDateAge(String date, int months) =>
       isKo ? '$date · ${months}개월' : '$date · ${months}mo';
+  /// 리스트 카드 1줄: 날짜 + (12개월↑) 만나이 병기. 월령 숫자는 왼쪽 배지가 담당.
+  static String entryDateWithYearMonth(String date, int months) {
+    final ym = ageYearMonthLabel(months, compact: true);
+    return ym.isEmpty ? date : '$date · $ym';
+  }
   static String entryHeightWeightBmi(String h, String w, String bmi) =>
       isKo
-          ? '키 $h cm / 몸무게 $w kg / BMI $bmi'
-          : 'Ht $h cm / Wt $w kg / BMI $bmi';
+          ? '키 $h · 체중 $w · BMI $bmi'
+          : 'Ht $h · Wt $w · BMI $bmi';
   static String get deleteTooltip => isKo ? '삭제' : 'Delete';
   static String get dateLabel => isKo ? '날짜: ' : 'Date: ';
   static String get labelBmiEdit => isKo ? 'BMI (자동/수동)' : 'BMI (auto/manual)';

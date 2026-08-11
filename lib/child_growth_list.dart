@@ -292,7 +292,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
 
                   final hText = _fmtDouble(e.height, fraction: 1);
                   final wText = _fmtDouble(e.weight, fraction: 1);
-                  final bmiText = _fmtDouble(e.bmi, fraction: 2);
+                  final bmiText = _fmtDouble(e.bmi, fraction: 1);
 
                   return InkWell(
                     onTap: () => _editEntryDialog(index),
@@ -314,13 +314,36 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                       child: Row(
                         children: [
                           Container(
-                            width: 44,
-                            height: 44,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(14),
+                              color: AppColors.accent.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.accent.withOpacity(0.18)),
                             ),
-                            child: const Icon(Icons.event_note, color: AppColors.accent),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${e.ageMonths}',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.bottomBar,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  AppStrings.monthUnit,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppColors.bottomBar,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -328,13 +351,13 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  AppStrings.entryDateAge(e.date, e.ageMonths),
+                                  AppStrings.entryDateWithYearMonth(e.date, e.ageMonths),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 Text(
                                   AppStrings.entryHeightWeightBmi(hText, wText, bmiText),
                                   style: const TextStyle(fontSize: 12, color: Colors.black54),
