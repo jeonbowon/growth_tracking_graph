@@ -190,11 +190,6 @@ class AppStrings {
       isKo ? '저장 중 오류가 발생했습니다.' : 'Save error.';
   static String entryDateAge(String date, int months) =>
       isKo ? '$date · ${months}개월' : '$date · ${months}mo';
-  /// 리스트 카드 1줄: 날짜 + (12개월↑) 만나이 병기. 월령 숫자는 왼쪽 배지가 담당.
-  static String entryDateWithYearMonth(String date, int months) {
-    final ym = ageYearMonthLabel(months, compact: true);
-    return ym.isEmpty ? date : '$date · $ym';
-  }
   static String entryHeightWeightBmi(String h, String w, String bmi) =>
       isKo
           ? '키 $h · 체중 $w · BMI $bmi'

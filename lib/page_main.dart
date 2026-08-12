@@ -337,6 +337,9 @@ class _MainPageState extends State<MainPage> {
       itemBuilder: (context, index) {
         final child = children[index];
         final birth = child.birthDate.toLocal().toString().split(' ')[0];
+        // 성별에 따라 아이콘 색상 구분 (남아 파랑 / 여아 핑크)
+        final genderColor =
+            child.gender == '남아' ? AppColors.accent : AppColors.girlAccent;
 
         return InkWell(
           onTap: () => _showActionSheet(child),
@@ -361,10 +364,10 @@ class _MainPageState extends State<MainPage> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.12),
+                    color: genderColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.child_care, color: AppColors.accent),
+                  child: Icon(Icons.sentiment_very_satisfied, color: genderColor),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

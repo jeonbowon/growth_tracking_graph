@@ -350,11 +350,24 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  AppStrings.entryDateWithYearMonth(e.date, e.ageMonths),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
+                                Text.rich(
+                                  TextSpan(
+                                    text: e.date,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                    children: [
+                                      if (AppStrings.ageYearMonthLabel(e.ageMonths).isNotEmpty)
+                                        TextSpan(
+                                          text: '   ${AppStrings.ageYearMonthLabel(e.ageMonths, compact: true)}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w400,
+                                            color: Colors.black38,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 4),
