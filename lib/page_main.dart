@@ -26,6 +26,10 @@ class _MainPageState extends State<MainPage> {
 
   List<ChildProfile> children = [];
 
+  /// 마지막 기록 후 _remindDays 이상 지난 아이만 담습니다. (childId → 경과일)
+  final Map<String, int> _overdue = {};
+  static const int _remindDays = 30;
+
   @override
   void initState() {
     super.initState();
@@ -57,8 +61,37 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  /// 저장된 성장 데이터에서 "마지막 기록 후 경과일"을 계산합니다.
+  /// 기록이 없거나 데이터가 깨져 있으면 -1을 반환합니다. (읽기 전용 — 저장하지 않음)
+  int _daysSince(String? raw) {
+    if (raw == null) return -1;
+
+    // 입력 순서대로 append 되므로 마지막 원소가 최신이 아닙니다.
+    // 'yyyy-MM-dd'는 문자열 비교만으로 날짜 순서가 되므로 최댓값을 찾습니다.
+    String latest = '';
+    try {
+      for (final e in json.decode(raw) as List) {
+        final d = (e is Map ? e['date'] ?? '' : '').toString();
+        if (d.length == 10 && d.compareTo(latest) > 0) latest = d;
+      }
+    } catch (_) {
+      return -1;
+    }
+
+    final p = DateTime.tryParse(latest);
+    if (p == null) return -1;
+
+    // 서머타임 지역에서 하루 오차가 나지 않도록 양쪽을 UTC 자정으로 정규화
+    final n = DateTime.now();
+    final days = DateTime.utc(n.year, n.month, n.day)
+        .difference(DateTime.utc(p.year, p.month, p.day))
+        .inDays;
+    return days < 0 ? 0 : days; // 미래 날짜 입력 방어
+  }
+
   Future<void> _loadChildren() async {
     final prefs = await SharedPreferences.getInstance();
+    _overdue.clear();
     final jsonString = prefs.getString('childProfiles');
 
     if (jsonString == null) {
@@ -84,6 +117,10 @@ class _MainPageState extends State<MainPage> {
 
       // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
       await ChildProfile.migrateLegacyGrowthKey(prefs, profile.id, profile.name);
+
+      // ⚠️ 반드시 마이그레이션 뒤에 계산해야 레거시 사용자도 정상 표시됩니다.
+      final days = _daysSince(prefs.getString('growth_${profile.id}'));
+      if (days >= _remindDays) _overdue[profile.id] = days;
 
       parsed.add(profile);
     }
@@ -193,7 +230,10 @@ class _MainPageState extends State<MainPage> {
                       birthdate: child.birthDate,
                     ),
                   ),
-                );
+                ).then((_) {
+                  // 돌아왔을 때 경과일 안내를 최신 상태로 갱신 (await 아님 → 광고 순서 무관)
+                  if (mounted) _loadChildren();
+                });
               },
             ),
             ListTile(
@@ -212,7 +252,10 @@ class _MainPageState extends State<MainPage> {
                       birthdate: child.birthDate,
                     ),
                   ),
-                );
+                ).then((_) {
+                  // 수정·삭제로 마지막 기록일이 바뀔 수 있으므로 갱신
+                  if (mounted) _loadChildren();
+                });
               },
             ),
             ListTile(
@@ -386,6 +429,19 @@ class _MainPageState extends State<MainPage> {
                         AppStrings.childCardGenderBirth(child.gender, birth),
                         style: const TextStyle(fontSize: 12, color: Colors.black54),
                       ),
+                      // 마지막 기록 후 30일 이상 지났을 때만 나타납니다.
+                      if (_overdue[child.id] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            AppStrings.recordDue(_overdue[child.id]!),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF4CA771),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

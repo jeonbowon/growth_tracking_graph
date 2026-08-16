@@ -86,6 +86,11 @@ class AppStrings {
         : 'Gender: $gLabel  ·  Birth: $birth';
   }
 
+  /// 마지막 기록 후 일정 기간이 지난 아이 카드에 표시하는 안내 문구
+  static String recordDue(int d) => isKo
+      ? '🌱 $d일 만이에요. 얼마나 자랐을까요?'
+      : '🌱 $d days since the last record. How much has your child grown?';
+
   // ── PageProfileInput ──────────────────────────────────
   static String get profileInputTitle => isKo ? '아이 정보 입력' : 'Enter Child Info';
   static String get labelName => isKo ? '성명' : 'Name';
