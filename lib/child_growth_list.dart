@@ -31,6 +31,22 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
 
   List<GrowthEntry> entries = [];
 
+  List<GrowthEntry> _newestFirst(List<GrowthEntry> values) {
+    final indexed = values.indexed.toList();
+    indexed.sort((a, b) {
+      final aDate = DateTime.tryParse(a.$2.date);
+      final bDate = DateTime.tryParse(b.$2.date);
+      // 날짜가 없는 이전 기록은 아래에, 같은 날짜는 기존 순서대로 표시합니다.
+      if (aDate == null && bDate != null) return 1;
+      if (aDate != null && bDate == null) return -1;
+      final byDate = aDate == null || bDate == null
+          ? 0
+          : bDate.compareTo(aDate);
+      return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
+    });
+    return indexed.map((item) => item.$2).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,10 +98,9 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
       final parsed = raw
           .whereType<Map>()
           .map((e) => GrowthEntry.fromJson(Map<String, dynamic>.from(e)))
-          .toList()
-        ..sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+          .toList();
 
-      if (mounted) setState(() => entries = parsed);
+      if (mounted) setState(() => entries = _newestFirst(parsed));
     } catch (e) {
       // 여기서 깨지면, 사용자는 "리스트에 안 뜬다" 라고 말하게 됩니다.
       // 깨지지 않게 만드는 게 이번 수정의 핵심입니다.
@@ -245,7 +260,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
     if (saved != null && mounted) {
       setState(() {
         entries[index] = saved;
-        entries.sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+        entries = _newestFirst(entries);
       });
       await _saveEntries();
     }
@@ -329,7 +344,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                   style: const TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.bottomBar,
+                                    color: AppColors.warmInk,
                                     height: 1.0,
                                   ),
                                 ),
@@ -338,7 +353,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                   AppStrings.monthUnit,
                                   style: const TextStyle(
                                     fontSize: 9,
-                                    color: AppColors.bottomBar,
+                                    color: AppColors.warmInk,
                                     height: 1.0,
                                   ),
                                 ),

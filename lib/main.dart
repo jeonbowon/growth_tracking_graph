@@ -72,10 +72,16 @@ class GrowthApp extends StatelessWidget {
       brightness: Brightness.light,
     ),
     scaffoldBackgroundColor: AppColors.bg,
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+      ),
+    ),
     fontFamily: 'NotoSansKR',
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.appBar,
-      foregroundColor: Colors.white,
+      foregroundColor: AppColors.warmInk,
       centerTitle: true,
       elevation: 0,
     ),

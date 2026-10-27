@@ -1,0 +1,111 @@
+00:00 +0: loading C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart
+00:00 +0: invalid backup must not overwrite valid stored growth data
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: '[{"height":100,"weight":20,"bmi":20,"ageMonths":36,"date":"2023-01-01"}]'
+  Actual: 'not-valid-json'
+   Which: is different.
+          Expected: [{"height" ...
+            Actual: not-valid- ...
+                    ^
+           Differ at offset 0
+Invalid backup overwrote valid data; rejected=null
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart:50:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart line 50
+The test description was:
+  invalid backup must not overwrite valid stored growth data
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: invalid backup must not overwrite valid stored growth data [E]
+  Test failed. See exception logs above.
+  The test description was: invalid backup must not overwrite valid stored growth data
+  
+00:00 +0 -1: changing weight after automatic BMI calculation should update saved BMI
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: <25.0>
+  Actual: <20.0>
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart:65:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart line 65
+The test description was:
+  changing weight after automatic BMI calculation should update saved BMI
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:02 +0 -2: changing weight after automatic BMI calculation should update saved BMI [E]
+  Test failed. See exception logs above.
+  The test description was: changing weight after automatic BMI calculation should update saved BMI
+  
+00:02 +0 -2: newer weight-only entry should not remove height point for same month
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: <true>
+  Actual: <false>
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart:76:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/jbw01/AppData/Local/Temp/growth_code_audit_test.dart line 76
+The test description was:
+  newer weight-only entry should not remove height point for same month
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:02 +0 -3: newer weight-only entry should not remove height point for same month [E]
+  Test failed. See exception logs above.
+  The test description was: newer weight-only entry should not remove height point for same month
+  
+00:02 +0 -3: standard chart should safely finish loading after leaving screen
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+setState() called after dispose(): _PageStandardGrowthChartState#75fc4(lifecycle state: defunct, not
+mounted)
+This error happens if you call setState() on a State object for a widget that no longer appears in
+the widget tree (e.g., whose parent widget no longer includes the widget in its build). This error
+can occur when code calls setState() from a timer or an animation callback.
+The preferred solution is to cancel the timer or stop listening to the animation in the dispose()
+callback. Another solution is to check the "mounted" property of this object before calling
+setState() to ensure the object is still in the tree.
+This error might indicate a memory leak if setState() is being called because another object is
+retaining a reference to this State object after it has been removed from the tree. To avoid memory
+leaks, consider breaking the reference to this object during dispose().
+
+When the exception was thrown, this was the stack:
+#0      State.setState.<anonymous closure> (package:flutter/src/widgets/framework.dart:1163:9)
+#1      State.setState (package:flutter/src/widgets/framework.dart:1198:6)
+#2      _PageStandardGrowthChartState._load (package:growth_tracking_graph/page_standard_growth_chart.dart:91:7)
+<asynchronous suspension>
+
+The test description was:
+  standard chart should safely finish loading after leaving screen
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:03 +0 -4: standard chart should safely finish loading after leaving screen [E]
+  Test failed. See exception logs above.
+  The test description was: standard chart should safely finish loading after leaving screen
+  
+00:03 +0 -4: Some tests failed.

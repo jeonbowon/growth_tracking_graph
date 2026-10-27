@@ -1,0 +1,90 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:growth_tracking_graph/app_strings.dart';
+import 'package:growth_tracking_graph/backup_manager.dart';
+import 'package:growth_tracking_graph/child_growth_input.dart';
+import 'package:growth_tracking_graph/child_growth_chart.dart';
+import 'package:growth_tracking_graph/page_standard_growth_chart.dart';
+
+class FakePicker extends FileSelectorPlatform {
+  final String payload;
+  FakePicker(this.payload);
+  @override
+  Future<XFile?> openFile({List<XTypeGroup>? acceptedTypeGroups, String? initialDirectory, String? confirmButtonText}) async => XFile.fromData(Uint8List.fromList(utf8.encode(payload)), name: 'test.json');
+}
+class EmptyBundle extends CachingAssetBundle {
+  @override
+  Future<ByteData> load(String key) async => ByteData.sublistView(Uint8List.fromList(utf8.encode('{}')));
+  @override
+  Future<String> loadString(String key, {bool cache = true}) async => '{}';
+}
+class DelayedBundle extends EmptyBundle {
+  final pending = Completer<String>();
+  @override
+  Future<String> loadString(String key, {bool cache = true}) => pending.future;
+}
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({'dev_lang_override': 'ko'});
+    await AppStrings.init();
+  });
+  testWidgets('invalid backup must not overwrite valid stored growth data', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    const oldProfiles = '[{"id":"child1","name":"test","gender":"남아","birthDate":"2020-01-01"}]';
+    const oldGrowth = '[{"height":100,"weight":20,"bmi":20,"ageMonths":36,"date":"2023-01-01"}]';
+    await prefs.setString('childProfiles', oldProfiles);
+    await prefs.setString('growth_child1', oldGrowth);
+    FileSelectorPlatform.instance = FakePicker(jsonEncode({'schema':2,'childProfiles':jsonDecode(oldProfiles),'growthByChildId':{'child1':'not-valid-json'}}));
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (context) {ctx=context;return const SizedBox();}))));
+    Object? rejected;
+    try {await BackupManager.importBackup(ctx);} catch (e) {rejected=e;}
+    expect(prefs.getString('growth_child1'), oldGrowth, reason: 'Invalid backup overwrote valid data; rejected=$rejected');
+  });
+  testWidgets('changing weight after automatic BMI calculation should update saved BMI', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: ChildGrowthInput(childId:'child1',childName:'test',birthdate:DateTime(2020))));
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '100');
+    await tester.enterText(fields.at(1), '20');
+    await tester.tap(find.text(AppStrings.autoCalc));
+    await tester.pump();
+    await tester.enterText(fields.at(1), '25');
+    await tester.ensureVisible(find.text(AppStrings.saveGrowthData));
+    await tester.tap(find.text(AppStrings.saveGrowthData));
+    await tester.pumpAndSettle();
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('growth_child1')!) as List;
+    expect(saved.single['bmi'], 25.0);
+  });
+  testWidgets('newer weight-only entry should not remove height point for same month', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('growth_child1', jsonEncode([
+      {'height':100,'weight':20,'bmi':20,'ageMonths':36,'date':'2023-01-01'},
+      {'height':null,'weight':21,'bmi':null,'ageMonths':36,'date':'2023-01-02'}
+    ]));
+    await tester.pumpWidget(MaterialApp(home: DefaultAssetBundle(bundle: EmptyBundle(),child: const ChildGrowthChart(childId:'child1',childName:'test',isMale:true))));
+    await tester.pumpAndSettle();
+    final heightChart = tester.widget<LineChart>(find.byType(LineChart).first);
+    expect(heightChart.data.lineBarsData.any((line) => line.spots.any((point) => point.y == 100)), true);
+  });
+  testWidgets('standard chart should safely finish loading after leaving screen', (tester) async {
+    final pending = Completer<ByteData?>();
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMessageHandler('flutter/assets', (message) => pending.future);
+    await tester.pumpWidget(const MaterialApp(home: PageStandardGrowthChart()));
+    await tester.pumpWidget(const SizedBox());
+    pending.complete(ByteData.sublistView(Uint8List.fromList(utf8.encode('{}'))));
+    await tester.pump();
+    messenger.setMockMessageHandler('flutter/assets', null);
+    expect(tester.takeException(), isNull);
+  });
+}
+

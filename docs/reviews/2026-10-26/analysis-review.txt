@@ -1,0 +1,82 @@
+Analyzing growth_tracking_graph...                              
+
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:124:26 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:124:38 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:124:44 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:129:22 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:129:34 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:129:42 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:139:20 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:197:23 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:234:20 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:245:14 - unnecessary_brace_in_string_interps
+   info - Unnecessary braces in a string interpolation - lib\app_strings.dart:270:29 - unnecessary_brace_in_string_interps
+warning - Unused import: 'dart:io' - lib\child_growth_chart.dart:3:8 - unused_import
+warning - Unused import: 'package:facebook_audience_network/facebook_audience_network.dart' - lib\child_growth_chart.dart:7:8 - unused_import
+warning - Unused import: 'package:google_mobile_ads/google_mobile_ads.dart' - lib\child_growth_chart.dart:8:8 - unused_import
+   info - The imported package 'vector_math' isn't a dependency of the importing package - lib\child_growth_chart.dart:10:8 - depend_on_referenced_packages
+warning - Unused import: 'ad_service.dart' - lib\child_growth_chart.dart:13:8 - unused_import
+   info - Parameter 'key' could be a super parameter - lib\child_growth_chart.dart:50:9 - use_super_parameters
+warning - The value of the field '_stdError' isn't used - lib\child_growth_chart.dart:72:11 - unused_field
+warning - The value of the field '_allEntries' isn't used - lib\child_growth_chart.dart:94:21 - unused_field
+warning - The declaration '_calcBounds' isn't referenced - lib\child_growth_chart.dart:363:58 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:513:24 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:515:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:525:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:604:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:606:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:610:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:674:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:695:65 - deprecated_member_use
+warning - The value of the local variable 'xInterval' isn't used - lib\child_growth_chart.dart:708:11 - unused_local_variable
+warning - The value of the local variable 'yInterval' isn't used - lib\child_growth_chart.dart:709:11 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:719:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:721:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:725:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:742:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:761:65 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:785:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:842:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:905:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:931:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:948:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1086:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1138:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1174:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1186:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1193:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1244:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1246:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1337:44 - deprecated_member_use
+   info - Statements in a for should be enclosed in a block - lib\child_growth_chart.dart:1394:35 - curly_braces_in_flow_control_structures
+   info - Statements in a for should be enclosed in a block - lib\child_growth_chart.dart:1396:36 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1431:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1457:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1519:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_chart.dart:1535:43 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\child_growth_input.dart:17:9 - use_super_parameters
+   info - Invalid use of a private type in a public API - lib\child_growth_input.dart:25:3 - library_private_types_in_public_api
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_input.dart:259:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_input.dart:261:55 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\child_growth_list.dart:16:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\child_growth_list.dart:93:28 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_list.dart:281:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_list.dart:305:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_list.dart:320:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\child_growth_list.dart:322:74 - deprecated_member_use
+   info - Constructors for public widgets should have a named 'key' parameter - lib\main.dart:66:7 - use_key_in_widget_constructors
+   info - Parameter 'key' could be a super parameter - lib\page_app_explanation.dart:8:9 - use_super_parameters
+   info - Constructors for public widgets should have a named 'key' parameter - lib\page_main.dart:20:7 - use_key_in_widget_constructors
+   info - Invalid use of a private type in a public API - lib\page_main.dart:22:3 - library_private_types_in_public_api
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\page_main.dart:322:38 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_main.dart:395:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_main.dart:410:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_main.dart:463:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_main.dart:492:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_main.dart:547:52 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\page_profile_input.dart:11:9 - use_super_parameters
+   info - Invalid use of a private type in a public API - lib\page_profile_input.dart:14:3 - library_private_types_in_public_api
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\page_standard_growth_chart.dart:305:61 - deprecated_member_use
+   info - Unnecessary braces in a string interpolation - lib\page_standard_growth_chart.dart:349:54 - unnecessary_brace_in_string_interps
+
+78 issues found. (ran in 51.6s)

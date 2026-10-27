@@ -328,7 +328,7 @@ class _MainPageState extends State<MainPage> {
         ],
 
         backgroundColor: AppColors.appBar,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.warmInk,
         centerTitle: true,
         elevation: 0,
       ),
@@ -343,7 +343,27 @@ class _MainPageState extends State<MainPage> {
               child: SafeArea(
                 child: Column(
                   children: [
-                    Expanded(child: _buildChildList()),
+                    Expanded(
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment(-0.95, -0.85),
+                            radius: 1.15,
+                            colors: [Color(0x14E69B70), Color(0x00E69B70)],
+                          ),
+                        ),
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: RadialGradient(
+                              center: Alignment(0.95, 0.85),
+                              radius: 1.1,
+                              colors: [Color(0x12A64F60), Color(0x00A64F60)],
+                            ),
+                          ),
+                          child: _buildChildList(),
+                        ),
+                      ),
+                    ),
                     _buildBottomMenu(),
                   ],
                 ),
@@ -542,9 +562,9 @@ class _MainPageState extends State<MainPage> {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.appBar,
+            color: AppColors.accent,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: AppColors.warmInk.withOpacity(0.08)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

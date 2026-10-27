@@ -303,6 +303,16 @@ class AppStrings {
 
   // ── PageAppExplanation ────────────────────────────────
   static String get explanationTitle => isKo ? '사용 설명' : 'Help';
+  static String get contactUs => isKo ? '문의하기' : 'Contact us';
+  static String get contactDescription => isKo
+      ? '오류 제보나 기능 제안을 보내주세요. 문의 양식이 외부 브라우저에서 열립니다.'
+      : 'Send bug reports or suggestions. The contact form opens in your browser (in Korean).';
+  static String get contactOpenFailed => isKo
+      ? '문의 페이지를 열지 못했습니다. 브라우저를 사용할 수 있는지 확인한 뒤 다시 시도해주세요.'
+      : 'Could not open the contact page. Check that a browser is available and try again.';
+  static String get contactPrivacyNotice => isKo
+      ? '문의 양식에서 직접 제출하는 내용과 이메일 주소는 문의 접수 및 답변을 위해 Tally에 전송되고 운영자에게 전달됩니다. 앱에 저장된 자녀 정보와 성장 기록은 문의에 자동 첨부되지 않습니다.'
+      : 'The message and email address you submit in the contact form are sent to Tally and forwarded to the operator to handle your inquiry. Child profiles and growth records stored in the app are not automatically attached.';
   static String versionTitle(String version) =>
       isKo ? '사용 설명  $version' : 'Help  $version';
   static String get expSec1Title => isKo ? '1. 앱 소개' : '1. About This App';
@@ -331,8 +341,8 @@ class AppStrings {
       isKo ? '3. 데이터 저장 방식 (중요 안내)' : '3. Data Storage (Important)';
   static String get expSec3Body1 =>
       isKo
-          ? '이 앱은 기본적으로 사용자의 데이터를 외부 서버로 전송하지 않습니다.\n입력한 모든 성장 데이터는 사용자의 휴대폰 내부에 안전하게 저장됩니다.'
-          : 'This app does not send your data to external servers.\nAll growth data is stored safely on your device.';
+          ? '앱에 입력한 성장 기록은 외부 서버로 자동 전송하지 않습니다.\n입력한 모든 성장 데이터는 사용자의 휴대폰 내부에 저장됩니다.'
+          : 'Growth records entered in the app are not automatically sent to external servers.\nAll growth data is stored on your device.';
   static String get expSec3Body2 =>
       isKo
           ? '즉, 아이의 키·몸무게 정보는 외부로 공유되지 않으며, 오직 사용자의 기기 안에만 보관됩니다.'
