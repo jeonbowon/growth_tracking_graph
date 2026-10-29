@@ -42,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId = "com.tnbsoft.growth_tracking_graph"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName

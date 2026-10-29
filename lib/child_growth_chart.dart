@@ -499,7 +499,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
     required ValueChanged<bool> onSelected,
     Color? activeColor,
   }) {
-    final c = activeColor ?? AppColors.accent;
+    final c = activeColor ?? Theme.of(context).colorScheme.primary;
     return FilterChip(
       selected: selected,
       label: label,
@@ -782,7 +782,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.accent.withOpacity(0.10)),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           boxShadow: const [
             BoxShadow(
                 color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
@@ -805,10 +805,10 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                 const Spacer(),
                 Text(
                   AppStrings.selectLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.accent),
+                      color: Theme.of(context).colorScheme.primary),
                 ),
               ],
             ),
@@ -839,7 +839,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       decoration: BoxDecoration(
         color: _card,
-        border: Border(bottom: BorderSide(color: AppColors.accent.withOpacity(0.10))),
+        border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.10))),
       ),
       child: Row(
         children: [
@@ -883,8 +883,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             icon: const Icon(Icons.view_agenda_outlined, size: 18),
             label: Text(AppStrings.viewAll),
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              textStyle: const TextStyle(fontWeight: FontWeight.w500),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              textStyle: TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -901,8 +901,8 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          color: selected ? AppColors.accent : Colors.white,
-          border: Border.all(color: AppColors.accent.withOpacity(selected ? 0 : 0.18)),
+          color: selected ? Theme.of(context).colorScheme.primary : Colors.white,
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(selected ? 0 : 0.18)),
         ),
         child: Text(
           text,
@@ -928,7 +928,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.10)),
         boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
         ],
@@ -939,13 +939,13 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
           Row(
             children: [
               Text('$title ${unit.isEmpty ? '' : '($unit)'}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w900)),
               const Spacer(),
               Text(
                 AppStrings.moveZoom,
                 style: TextStyle(
-                    color: AppColors.accent.withOpacity(0.95),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.95),
                     fontWeight: FontWeight.w900),
               ),
             ],
@@ -958,7 +958,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showStandard,
                 label: Text(AppStrings.stdLine),
-                activeColor: AppColors.accent,
+                activeColor: Theme.of(context).colorScheme.primary,
                 onSelected: (v) {
                   setState(() {
                     _showStandard = v;
@@ -969,7 +969,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
               _smallChip(
                 selected: _showChild,
                 label: Text(AppStrings.childData),
-                activeColor: AppColors.accent,
+                activeColor: Theme.of(context).colorScheme.primary,
                 onSelected: (v) {
                   setState(() {
                     _showChild = v;
@@ -1030,7 +1030,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                               kind: kind,
                               minY: minY,
                               maxY: maxY,
-                              accent: AppColors.accent,
+                              accent: Theme.of(context).colorScheme.primary,
                               showMinMax: false,
                             ),
                           ),
@@ -1083,7 +1083,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                     child: IgnorePointer(
                                       child: CustomPaint(
                                         painter: _CrosshairPainter(
-                                          accent: AppColors.accent.withOpacity(0.65),
+                                          accent: Theme.of(context).colorScheme.primary.withOpacity(0.65),
                                         ),
                                       ),
                                     ),
@@ -1095,7 +1095,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                                       child: _CenterBadge(
                                         text:
                                             AppStrings.centerBadge(_fmtX(cx), _fmtY(kind, cy), unit),
-                                        accent: AppColors.accent,
+                                        accent: Theme.of(context).colorScheme.primary,
                                       ),
                                     ),
                                 ],
@@ -1114,7 +1114,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                             child: _FixedXAxis(
                               minX: minX,
                               maxX: maxX,
-                              accent: AppColors.accent,
+                              accent: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ],
@@ -1130,7 +1130,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
             onZoomIn: _zoomIn,
             onZoomOut: _zoomOut,
             onReset: _resetView,
-            accent: AppColors.accent,
+            accent: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 10),
           Text(
@@ -1149,7 +1149,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
         : AppStrings.chartTitleShort(widget.childName, _sex.label);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title),
         actions: [
@@ -1183,7 +1183,7 @@ class _ChildGrowthChartState extends State<ChildGrowthChart> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.10)),
                       ),
                       child: Text(
                         AppStrings.chartHint,

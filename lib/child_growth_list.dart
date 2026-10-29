@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'growth_entry.dart';
 import 'child_profile.dart';
-import 'app_colors.dart';
+
 import 'app_strings.dart';
 
 class ChildGrowthList extends StatefulWidget {
@@ -203,7 +203,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
               const SizedBox(height: 6),
               Text(
                 AppStrings.bmiAutoHint,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
           ),
@@ -214,7 +214,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
             child: Text(AppStrings.cancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             onPressed: () {
               final newAge = int.tryParse(ageController.text.trim()) ?? e.ageMonths;
               final newH = _parsePositiveDoubleAllowNull(heightController.text);
@@ -249,7 +249,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
               );
               Navigator.pop(dialogCtx);
             },
-            child: Text(AppStrings.save, style: const TextStyle(color: Colors.white)),
+            child: Text(AppStrings.save, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -278,14 +278,14 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(AppStrings.growthListTitle(widget.childName)),
         actions: [
           IconButton(
             tooltip: AppStrings.refresh,
             onPressed: _loadEntries,
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
           )
         ],
       ),
@@ -317,7 +317,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.10)),
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black12,
@@ -332,28 +332,28 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.08),
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.accent.withOpacity(0.18)),
+                              border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.18)),
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   '${e.ageMonths}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.warmInk,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     height: 1.0,
                                   ),
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
                                   AppStrings.monthUnit,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 9,
-                                    color: AppColors.warmInk,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     height: 1.0,
                                   ),
                                 ),
@@ -368,7 +368,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                 Text.rich(
                                   TextSpan(
                                     text: e.date,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                       color: Colors.black87,
@@ -377,7 +377,7 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                       if (AppStrings.ageYearMonthLabel(e.ageMonths).isNotEmpty)
                                         TextSpan(
                                           text: '   ${AppStrings.ageYearMonthLabel(e.ageMonths, compact: true)}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w400,
                                             color: Colors.black38,
                                           ),
@@ -388,14 +388,14 @@ class _ChildGrowthListState extends State<ChildGrowthList> {
                                 const SizedBox(height: 4),
                                 Text(
                                   AppStrings.entryHeightWeightBmi(hText, wText, bmiText),
-                                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                  style: TextStyle(fontSize: 12, color: Colors.black54),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
                             tooltip: AppStrings.deleteTooltip,
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            icon: Icon(Icons.delete_outline, color: Colors.red),
                             onPressed: () => _confirmDelete(index),
                           ),
                         ],

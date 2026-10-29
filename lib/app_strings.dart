@@ -58,6 +58,28 @@ class AppStrings {
   static String get menuProfile => isKo ? '프로필' : 'Profile';
   static String get menuStandardChart => isKo ? '표준도표' : 'Std Chart';
   static String get menuHelp => isKo ? '사용설명' : 'Help';
+  static String get mainMore => isKo ? '더보기' : 'More';
+  static String get backgroundSettings => isKo ? '테마 설정' : 'Themes';
+  static String get themeAutomatic => isKo ? '자동 계절 테마' : 'Automatic seasonal theme';
+  static String get themeSeasonGroup => isKo ? '계절' : 'Seasons';
+  static String get themeOtherGroup => isKo ? '기본 및 기타' : 'Classic & more';
+  static String get backgroundAutomatic => isKo ? '자동' : 'Automatic';
+  static String get backgroundSpring => isKo ? '봄' : 'Spring';
+  static String get backgroundSummer => isKo ? '여름' : 'Summer';
+  static String get backgroundAutumn => isKo ? '가을' : 'Autumn';
+  static String get backgroundWinter => isKo ? '겨울' : 'Winter';
+  static String get backgroundOriginal =>
+      isKo ? '기본 테마' : 'Classic';
+  static String get backgroundMotion => isKo ? '움직이는 효과' : 'Animated effects';
+  static String get backgroundClose => isKo ? '닫기' : 'Close';
+  static String backgroundCurrent(String season) =>
+      isKo ? '현재 계절: $season' : 'Current season: $season';
+  static String get backgroundSaveFailed => isKo
+      ? '설정을 저장하지 못했습니다. 다시 선택해 주세요.'
+      : 'Could not save your settings. Please select again.';
+  static String get backgroundReducedMotion => isKo
+      ? '기기의 애니메이션 줄이기 설정에 따라 정적인 배경을 표시합니다.'
+      : 'Animations are paused by your device’s reduced motion setting.';
   static String get backupExport => isKo ? '백업 내보내기' : 'Export Backup';
   static String get backupImport => isKo ? '백업 가져오기' : 'Import Backup';
   static String get importFailed => isKo ? '가져오기 실패: ' : 'Import failed: ';

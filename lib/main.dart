@@ -9,8 +9,9 @@ import 'package:facebook_audience_network/facebook_audience_network.dart';
 
 import 'page_main.dart';
 import 'ad_service.dart';
-import 'app_colors.dart';
+import 'theme_controller.dart';
 import 'app_strings.dart';
+import 'seasonal_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,11 +33,7 @@ Future<void> _initAds() async {
   try {
     await MobileAds.instance.initialize();
     MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(
-        testDeviceIds: [
-          '2A17A469EEC2D5F0054CC27E08230F27',
-        ],
-      ),
+      RequestConfiguration(testDeviceIds: ['2A17A469EEC2D5F0054CC27E08230F27']),
     );
   } catch (_) {
     // AdMob 초기화 실패해도 계속 진행
@@ -59,41 +56,59 @@ Future<void> _initAds() async {
 Future<void> _initFacebook() async {
   await FacebookAudienceNetwork.init();
 
-  const channel = MethodChannel('com.tnbsoft.growth_tracking_graph/ad_settings');
-  await channel.invokeMethod('addTestDevice', {'testingId': 'c450a4b5-80b4-4105-9f72-360a5eac84a4'});
+  const channel = MethodChannel(
+    'com.tnbsoft.growth_tracking_graph/ad_settings',
+  );
+  await channel.invokeMethod('addTestDevice', {
+    'testingId': 'c450a4b5-80b4-4105-9f72-360a5eac84a4',
+  });
 }
 
-class GrowthApp extends StatelessWidget {
-  // build()마다 재생성되지 않도록 한 번만 계산
-  static final _theme = ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.accent,
-      brightness: Brightness.light,
-    ),
-    scaffoldBackgroundColor: AppColors.bg,
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
-      ),
-    ),
-    fontFamily: 'NotoSansKR',
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.appBar,
-      foregroundColor: AppColors.warmInk,
-      centerTitle: true,
-      elevation: 0,
-    ),
-  );
+class GrowthApp extends StatefulWidget {
+  const GrowthApp({super.key, this.controller});
+  final ThemeController? controller;
+  @override
+  State<GrowthApp> createState() => _GrowthAppState();
+}
+
+class _GrowthAppState extends State<GrowthApp> {
+  ThemeController? _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.controller;
+    if (_controller == null) _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final selection = await ThemeSelection.load();
+    if (!mounted) return;
+    setState(() => _controller = ThemeController(initial: selection));
+  }
+
+  @override
+  void dispose() {
+    if (widget.controller == null) _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppStrings.appTitle,
-      debugShowCheckedModeBanner: false,
-      theme: _theme,
-      home: MainPage(),
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
+    return ThemeScope(
+      controller: controller,
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) => MaterialApp(
+          title: AppStrings.appTitle,
+          debugShowCheckedModeBanner: false,
+          theme: controller.current.buildTheme(),
+          themeAnimationDuration: Duration.zero,
+          home: MainPage(),
+          navigatorObservers: [backgroundRouteObserver],
+        ),
+      ),
     );
   }
 }

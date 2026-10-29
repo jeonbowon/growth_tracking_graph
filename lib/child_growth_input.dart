@@ -188,7 +188,7 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
               ],
             ),
             const SizedBox(height: 10),
-            Text(AppStrings.ageMonths(ageInMonths), style: const TextStyle(fontSize: 16)),
+            Text(AppStrings.ageMonths(ageInMonths), style: TextStyle(fontSize: 16)),
             const SizedBox(height: 20),
 
             // 📏 키 입력
@@ -231,16 +231,16 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: saveGrowthData,
-                  icon: const Icon(Icons.save_alt, size: 24),
+                  icon: Icon(Icons.save_alt, size: 24),
                   label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14.0),
                     child: Text(
                       AppStrings.saveGrowthData,
-                      style: const TextStyle(fontSize: 18),
+                      style: TextStyle(fontSize: 18),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
@@ -256,16 +256,16 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.05),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal.withOpacity(0.20)),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.20)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 2),
-                    child: Icon(Icons.backup_outlined, color: Colors.teal, size: 18),
+                    child: Icon(Icons.backup_outlined, color: Theme.of(context).colorScheme.primary, size: 18),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -273,13 +273,13 @@ class _ChildGrowthInputState extends State<ChildGrowthInput> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(AppStrings.backupNudgeTitle,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.teal)),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
                         const SizedBox(height: 6),
                         Text(AppStrings.backupNudgeBody,
-                            style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.5)),
+                            style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.5)),
                         const SizedBox(height: 8),
                         Text(AppStrings.backupNudgeHint,
-                            style: const TextStyle(fontSize: 11, color: Colors.black38, height: 1.4)),
+                            style: TextStyle(fontSize: 11, color: Colors.black38, height: 1.4)),
                       ],
                     ),
                   ),

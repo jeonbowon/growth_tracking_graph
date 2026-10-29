@@ -16,6 +16,9 @@ import 'backup_manager.dart';
 import 'common_banner.dart';
 import 'ad_service.dart';
 import 'app_strings.dart';
+import 'seasonal_background.dart';
+import 'theme_controller.dart';
+import 'background_settings_sheet.dart';
 
 class MainPage extends StatefulWidget {
   @override
@@ -23,8 +26,51 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-
   List<ChildProfile> children = [];
+  bool _showingInterstitial = false;
+
+  Future<void> _openThemeSettings() async {
+    final controller = ThemeScope.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      builder: (_) => ThemeSettingsSheet(controller: controller),
+    );
+  }
+
+  Future<void> _showTransitionAd() async {
+    setState(() => _showingInterstitial = true);
+    try {
+      await AdService.instance.tryShowInterstitialOnNaturalTransition();
+    } finally {
+      if (mounted) setState(() => _showingInterstitial = false);
+    }
+  }
+
+  Future<void> _handleMainMenu(String action) async {
+    switch (action) {
+      case 'background':
+        await _openThemeSettings();
+        break;
+      case 'export':
+        await BackupManager.exportBackup(context);
+        break;
+      case 'import':
+        try {
+          await BackupManager.importBackup(context);
+          if (mounted) await _loadChildren();
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${AppStrings.importFailed}$e')),
+          );
+        }
+        break;
+    }
+  }
 
   /// 마지막 기록 후 _remindDays 이상 지난 아이만 담습니다. (childId → 경과일)
   final Map<String, int> _overdue = {};
@@ -34,11 +80,13 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _loadChildren();
+
     // Play Store 네트워크 요청이 광고 SDK 초기화와 경쟁하지 않도록 3초 후 실행
-    Future.delayed(const Duration(seconds: 3), _checkForUpdate);
+    Future.delayed(Duration(seconds: 3), _checkForUpdate);
   }
 
   Future<void> _checkForUpdate() async {
+    if (!mounted) return;
     try {
       final info = await InAppUpdate.checkForUpdate();
       if (!mounted) return;
@@ -83,9 +131,11 @@ class _MainPageState extends State<MainPage> {
 
     // 서머타임 지역에서 하루 오차가 나지 않도록 양쪽을 UTC 자정으로 정규화
     final n = DateTime.now();
-    final days = DateTime.utc(n.year, n.month, n.day)
-        .difference(DateTime.utc(p.year, p.month, p.day))
-        .inDays;
+    final days = DateTime.utc(
+      n.year,
+      n.month,
+      n.day,
+    ).difference(DateTime.utc(p.year, p.month, p.day)).inDays;
     return days < 0 ? 0 : days; // 미래 날짜 입력 방어
   }
 
@@ -95,6 +145,7 @@ class _MainPageState extends State<MainPage> {
     final jsonString = prefs.getString('childProfiles');
 
     if (jsonString == null) {
+      if (!mounted) return;
       setState(() => children = []);
       return;
     }
@@ -116,7 +167,11 @@ class _MainPageState extends State<MainPage> {
       final profile = ChildProfile.fromJson(m);
 
       // ✅ 공통 마이그레이션 메서드 사용 (레거시 키 삭제 포함)
-      await ChildProfile.migrateLegacyGrowthKey(prefs, profile.id, profile.name);
+      await ChildProfile.migrateLegacyGrowthKey(
+        prefs,
+        profile.id,
+        profile.name,
+      );
 
       // ⚠️ 반드시 마이그레이션 뒤에 계산해야 레거시 사용자도 정상 표시됩니다.
       final days = _daysSince(prefs.getString('growth_${profile.id}'));
@@ -157,9 +212,9 @@ class _MainPageState extends State<MainPage> {
     await _loadChildren();
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppStrings.profileDeleted)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AppStrings.profileDeleted)));
   }
 
   void _confirmDeleteProfile(ChildProfile child) {
@@ -189,35 +244,38 @@ class _MainPageState extends State<MainPage> {
   void _openProfileInput() {
     showDialog(
       context: context,
-      builder: (_) => PageProfileInput(
-        onProfileSaved: _loadChildren,
-      ),
+      builder: (_) => PageProfileInput(onProfileSaved: _loadChildren),
     );
   }
 
   void _showActionSheet(ChildProfile child) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Container(
               width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             ListTile(
-              leading: const Icon(Icons.add, color: AppColors.accent),
+              leading: Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               title: Text(AppStrings.actionAddData),
               onTap: () {
                 Navigator.pop(context);
@@ -237,11 +295,14 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit, color: AppColors.accent),
+              leading: Icon(
+                Icons.edit,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               title: Text(AppStrings.actionViewEdit),
               onTap: () async {
                 Navigator.pop(context);
-                await AdService.instance.tryShowInterstitialOnNaturalTransition();
+                await _showTransitionAd();
                 if (!mounted) return;
                 Navigator.push(
                   context,
@@ -259,11 +320,14 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.show_chart, color: AppColors.accent),
+              leading: Icon(
+                Icons.show_chart,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               title: Text(AppStrings.actionViewChart),
               onTap: () async {
                 Navigator.pop(context);
-                await AdService.instance.tryShowInterstitialOnNaturalTransition();
+                await _showTransitionAd();
                 if (!mounted) return;
                 Navigator.push(
                   context,
@@ -278,14 +342,14 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
+              leading: Icon(Icons.delete, color: Colors.red),
               title: Text(AppStrings.actionDeleteProfile),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteProfile(child);
               },
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
           ],
         ),
       ),
@@ -295,40 +359,35 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: const CommonBanner(),
-      backgroundColor: AppColors.bg,
+      bottomNavigationBar: CommonBanner(),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(AppStrings.appTitle),
         actions: [
-          IconButton(
-            tooltip: AppStrings.backupExport,
-            icon: const Icon(Icons.upload_file),
-            onPressed: () async {
-              await BackupManager.exportBackup(context);
-            },
-          ),
-          IconButton(
-            tooltip: AppStrings.backupImport,
-            icon: const Icon(Icons.download),
-            onPressed: () async {
-              try {
-                await BackupManager.importBackup(context);
-                if (mounted) {
-                  await _loadChildren();
-                  setState(() {});
-                }
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${AppStrings.importFailed}$e')),
-                );
-              }
-            },
+          PopupMenuButton<String>(
+            tooltip: AppStrings.mainMore,
+            icon: Icon(Icons.more_vert),
+            onSelected: _handleMainMenu,
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'background',
+
+                child: Text(AppStrings.backgroundSettings),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'export',
+                child: Text(AppStrings.backupExport),
+              ),
+              PopupMenuItem(
+                value: 'import',
+                child: Text(AppStrings.backupImport),
+              ),
+            ],
           ),
         ],
-
-        backgroundColor: AppColors.appBar,
-        foregroundColor: AppColors.warmInk,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         centerTitle: true,
         elevation: 0,
       ),
@@ -339,29 +398,16 @@ class _MainPageState extends State<MainPage> {
           const maxContentWidth = 430.0;
           return Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: maxContentWidth),
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
               child: SafeArea(
                 child: Column(
                   children: [
                     Expanded(
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          gradient: RadialGradient(
-                            center: Alignment(-0.95, -0.85),
-                            radius: 1.15,
-                            colors: [Color(0x14E69B70), Color(0x00E69B70)],
-                          ),
-                        ),
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            gradient: RadialGradient(
-                              center: Alignment(0.95, 0.85),
-                              radius: 1.1,
-                              colors: [Color(0x12A64F60), Color(0x00A64F60)],
-                            ),
-                          ),
-                          child: _buildChildList(),
-                        ),
+                      child: ThemeBackground(
+                        design: ThemeScope.of(context).current.background,
+                        motion: ThemeScope.of(context).selection.motion,
+                        enabled: !_showingInterstitial,
+                        child: _buildChildList(),
                       ),
                     ),
                     _buildBottomMenu(),
@@ -378,44 +424,52 @@ class _MainPageState extends State<MainPage> {
   Widget _buildChildList() {
     if (children.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         children: [
           _infoCard(
             title: AppStrings.noChildRegistered,
             desc: AppStrings.noChildDesc,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
             AppStrings.noChildHint,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
       itemCount: children.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, __) => SizedBox(height: 10),
       itemBuilder: (context, index) {
         final child = children[index];
         final birth = child.birthDate.toLocal().toString().split(' ')[0];
         // 성별에 따라 아이콘 색상 구분 (남아 파랑 / 여아 핑크)
-        final genderColor =
-            child.gender == '남아' ? AppColors.accent : AppColors.girlAccent;
+        final genderColor = child.gender == '남아'
+            ? AppColors.boyAccent
+            : AppColors.girlAccent;
 
         return InkWell(
           onTap: () => _showActionSheet(child),
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.accent.withOpacity(0.10)),
-              boxShadow: const [
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.10),
+              ),
+              boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.06),
                   blurRadius: 10,
                   offset: Offset(0, 4),
                 ),
@@ -430,34 +484,40 @@ class _MainPageState extends State<MainPage> {
                     color: genderColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(Icons.sentiment_very_satisfied, color: genderColor),
+                  child: Icon(
+                    Icons.sentiment_very_satisfied,
+                    color: genderColor,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         child.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         AppStrings.childCardGenderBirth(child.gender, birth),
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       // 마지막 기록 후 30일 이상 지났을 때만 나타납니다.
                       if (_overdue[child.id] != null)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: 4),
                           child: Text(
                             AppStrings.recordDue(_overdue[child.id]!),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF4CA771),
+                              color: Color(0xFF397254),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -465,7 +525,11 @@ class _MainPageState extends State<MainPage> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.accent),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ],
             ),
           ),
@@ -476,25 +540,38 @@ class _MainPageState extends State<MainPage> {
 
   Widget _infoCard({required String title, required String desc}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withOpacity(0.10)),
-        boxShadow: const [
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.10),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Text(desc, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          Text(
+            title,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          SizedBox(height: 8),
+          Text(
+            desc,
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
         ],
       ),
     );
@@ -504,14 +581,16 @@ class _MainPageState extends State<MainPage> {
   Widget _buildBottomMenu() {
     return Container(
       height: 106,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
+      padding: EdgeInsets.fromLTRB(12, 10, 12, 32),
       decoration: BoxDecoration(
-        color: AppColors.bottomBar,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.22),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.04),
             blurRadius: 14,
-            offset: const Offset(0, -4),
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -522,20 +601,20 @@ class _MainPageState extends State<MainPage> {
             label: AppStrings.menuProfile,
             onTap: _openProfileInput,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           _menuButton(
             icon: Icons.stacked_line_chart,
             label: AppStrings.menuStandardChart,
             onTap: () async {
-              await AdService.instance.tryShowInterstitialOnNaturalTransition();
+              await _showTransitionAd();
               if (!mounted) return;
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PageStandardGrowthChart()),
+                MaterialPageRoute(builder: (_) => PageStandardGrowthChart()),
               );
             },
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           _menuButton(
             icon: Icons.help_outline,
             label: AppStrings.menuHelp,
@@ -562,19 +641,25 @@ class _MainPageState extends State<MainPage> {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.accent,
+            color: Theme.of(context).colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.warmInk.withOpacity(0.08)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 22, color: Colors.white),
-              const SizedBox(height: 6),
+              Icon(
+                icon,
+                size: 22,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
